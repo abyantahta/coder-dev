@@ -12,6 +12,11 @@ class DepartmentSeeder extends Seeder
 {
     public function run(): void
     {
+        if (Department::where('slug', 'maintenance')->exists()) {
+            $this->command?->info('Departemen sudah ada, DepartmentSeeder dilewati.');
+            return;
+        }
+
         // ── Maintenance (MTC) ─────────────────────────────────────────────────
         $mtc = Department::create([
             'name'               => 'Maintenance',
