@@ -2,10 +2,11 @@
 
 return [
 
-    'url' => env('QAD_URL', 'http://qadeesdi.site:24079/qxi/services/QdocWebService'),
+    // WSA broker (port 25079) — verified against prodhourlyreport/'s working
+    // QAD sync, which calls the same SDI_getItemMasterExt operation.
+    'url' => env('QAD_URL', 'http://qadeesdi.site:25079/wsa/wsaprod'),
 
-    // TODO confirm exact namespace for this QXtend service group
-    'ws_namespace' => env('QAD_WS_NAMESPACE', ''),
+    'ws_namespace' => env('QAD_WS_NAMESPACE', 'http://ws.imi.co.id/wsaprod'),
 
     'domain' => env('QAD_DOMAIN', '7000'),
 

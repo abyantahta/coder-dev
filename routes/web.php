@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\DeptAdminController;
+use App\Http\Controllers\Admin\ItemMasterController;
 use App\Http\Controllers\SuperAdminController;
 use App\Http\Controllers\Admin\UnitManagementController;
 use App\Http\Controllers\Admin\UserManagementController;
@@ -57,6 +58,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/orders/{partOrder}', [WarehouseController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{partOrder}/lines', [WarehouseController::class, 'addLine'])->name('orders.add-line');
         Route::delete('/orders/{partOrder}/lines/{line}', [WarehouseController::class, 'removeLine'])->name('orders.remove-line');
+    });
+
+    // Item Master Data (synced item catalog that Warehouse PR lines are built from)
+    Route::middleware('role:warehouse_mtc,section_head')->prefix('items')->name('items.')->group(function () {
+        Route::get('/', [ItemMasterController::class, 'index'])->name('index');
+        Route::post('/sync', [ItemMasterController::class, 'sync'])->name('sync');
     });
 
     // QA Actions
