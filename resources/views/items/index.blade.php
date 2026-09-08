@@ -2,34 +2,61 @@
 @section('title', 'Master Data Item')
 @section('page-title', 'Master Data Item')
 
+@php
+    $syncInFlight = in_array($syncStatus['status'] ?? null, ['queued', 'running'], true);
+    $syncBannerClass = match ($syncStatus['status'] ?? null) {
+        'ok' => 'border-green-200 bg-green-50 text-green-800',
+        'failed' => 'border-red-200 bg-red-50 text-red-800',
+        default => 'border-sky-200 bg-sky-50 text-sky-900',
+    };
+@endphp
+
 @section('content')
 
 {{-- Sync status / action --}}
-<div class="bg-white rounded-xl shadow-sm p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
-    <div>
-        <h2 class="font-semibold text-slate-800">Sinkronisasi Item QAD</h2>
-        <p class="text-sm text-slate-500 mt-0.5">
-            {{ $totalItems }} item tersimpan.
-            @if ($lastSyncedAt)
-                Terakhir sync {{ \Illuminate\Support\Carbon::parse($lastSyncedAt)->diffForHumans() }}
-                ({{ \Illuminate\Support\Carbon::parse($lastSyncedAt)->format('d M Y H:i') }}).
-            @else
-                Belum pernah disinkronkan.
-            @endif
-        </p>
+<div class="bg-white rounded-xl shadow-sm p-5 mb-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h2 class="font-semibold text-slate-800">Sinkronisasi Item QAD</h2>
+            <p class="text-sm text-slate-500 mt-0.5">
+                {{ $totalItems }} item tersimpan.
+                @if ($lastSyncedAt)
+                    Terakhir sync {{ \Illuminate\Support\Carbon::parse($lastSyncedAt)->diffForHumans() }}
+                    ({{ \Illuminate\Support\Carbon::parse($lastSyncedAt)->format('d M Y H:i') }}).
+                @else
+                    Belum pernah disinkronkan.
+                @endif
+            </p>
+        </div>
+        <form method="POST" action="{{ route('items.sync') }}">
+            @csrf
+            <button type="submit" @if ($syncInFlight) disabled @endif
+                class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {{ $syncInFlight ? 'Sedang sync…' : 'Sync Sekarang' }}
+            </button>
+        </form>
     </div>
-    <form method="POST" action="{{ route('items.sync') }}">
-        @csrf
-        <button type="submit"
-            class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Sync Sekarang
-        </button>
-    </form>
+
+    @if ($syncStatus['message'] ?? null)
+    <div class="mt-4 rounded-lg border px-4 py-3 text-sm {{ $syncBannerClass }}">
+        <span class="font-medium capitalize">{{ $syncStatus['status'] }}</span>
+        — {{ $syncStatus['message'] }}
+        @if ($syncInFlight)
+        <span class="ms-1 text-xs opacity-80">(auto-refresh tiap 5 detik)</span>
+        @endif
+    </div>
+    @endif
 </div>
+
+@if ($syncInFlight)
+<script>
+    setTimeout(() => window.location.reload(), 5000);
+</script>
+@endif
 
 {{-- Search --}}
 <div class="bg-white rounded-xl shadow-sm p-5 mb-6">

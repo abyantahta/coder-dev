@@ -63,7 +63,7 @@ Route::middleware('auth')->group(function () {
     // Item Master Data (synced item catalog that Warehouse PR lines are built from)
     Route::middleware('role:warehouse_mtc,section_head')->prefix('items')->name('items.')->group(function () {
         Route::get('/', [ItemMasterController::class, 'index'])->name('index');
-        Route::post('/sync', [ItemMasterController::class, 'sync'])->name('sync');
+        Route::post('/sync', [ItemMasterController::class, 'sync'])->middleware('throttle:3,1')->name('sync');
     });
 
     // QA Actions
