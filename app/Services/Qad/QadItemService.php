@@ -3,7 +3,6 @@
 namespace App\Services\Qad;
 
 use App\Models\QadItem;
-use App\Models\Qxwsas;
 use Illuminate\Support\Collection;
 use RuntimeException;
 
@@ -35,7 +34,7 @@ class QadItemService
 
     /**
      * Pull the full item master from QAD (SDI_getItemMasterExt) and upsert
-     * into qad_items. Connection details come from the qxwsas table.
+     * into qad_items. Connection details come from config/qad.php.
      *
      * @return array{synced: int, created: int, updated: int}
      */
@@ -43,10 +42,8 @@ class QadItemService
     {
         $this->raiseLimits();
 
-        $wsa = Qxwsas::firstOrFail();
-
-        $xml = $this->buildEnvelope($wsa->qxwsa_wsa_path);
-        $body = $this->callAndBody($xml, $wsa->qxwsa_wsa_url);
+        $xml = $this->buildEnvelope(config('qad.ws_namespace'));
+        $body = $this->callAndBody($xml);
         $response = $body['SDI_getItemMasterExtResponse'] ?? null;
 
         if ($response === null) {
@@ -152,9 +149,9 @@ class QadItemService
     /**
      * @return array<string, mixed>
      */
-    private function callAndBody(string $xml, string $url): array
+    private function callAndBody(string $xml): array
     {
-        $response = $this->soap->call($xml, $url);
+        $response = $this->soap->call($xml);
         $this->lastRaw = $response['raw'] ?? null;
 
         if ($response['is_error']) {

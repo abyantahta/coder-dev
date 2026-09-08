@@ -11,7 +11,6 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DepartmentSeeder::class,
             DemoDataSeeder::class,
-            QxwsasSeeder::class,
         ]);
     }
 }

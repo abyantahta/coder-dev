@@ -14,14 +14,18 @@ class QadSoapClient
      *
      * @return array{is_error: bool, message?: string, data?: array, raw?: string, http_code?: int}
      */
-    public function call(string $xmlRequest, string $url): array
+    public function call(string $xmlRequest): array
     {
+        $url = config('qad.url');
+
         if (blank($url)) {
             return [
                 'is_error' => true,
-                'message' => 'QAD WSA URL is not configured (qxwsas.qxwsa_wsa_url).',
+                'message' => 'QAD URL is not configured (QAD_URL).',
             ];
         }
+
+        $sslVerify = (bool) config('qad.ssl_verify', false);
 
         $curl = curl_init($url);
         curl_setopt_array($curl, [
@@ -33,9 +37,9 @@ class QadSoapClient
                 'SOAPAction: ""',
             ],
             CURLOPT_POSTFIELDS => $xmlRequest,
-            CURLOPT_SSL_VERIFYHOST => 0,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT => 3600,
+            CURLOPT_SSL_VERIFYHOST => $sslVerify ? 2 : 0,
+            CURLOPT_SSL_VERIFYPEER => $sslVerify,
+            CURLOPT_TIMEOUT => config('qad.timeout', 3600),
         ]);
 
         $response = curl_exec($curl);
