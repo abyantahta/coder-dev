@@ -23,6 +23,7 @@ class DemoDataSeeder extends Seeder
     private array $gaRoles  = [];
     private array $mtcCats  = [];
     private array $qaCats   = [];
+    private array $gaCats   = [];
 
     public function run(): void
     {
@@ -324,6 +325,113 @@ class DemoDataSeeder extends Seeder
         $this->finishedQaWO($userProduksi, 'Inspeksi Produk Ekspor Batch #20260201',   'Inspeksi kualitas produk batch ekspor.',            'high',   $qaGH, $qaMember2, 75,  4, 1, 80,  $userProduksi, $catInspeksi);
         $this->finishedQaWO($userIT,       'Review Prosedur Kalibrasi Lab Q4',         'Review prosedur kalibrasi triwulan 4.',             'low',    $qaGH, $qaMember1, 110, 3, 0, 90,  $userIT,       $catDokumentasi);
 
+        // ── GA Users ─────────────────────────────────────────────────────────
+        $gaSectionHead = User::create([
+            'name' => 'Rini Kartika', 'email' => 'ga.section@sankei.com',
+            'password' => Hash::make('password'), 'role' => 'ga_section_head', 'department' => 'GA',
+            'department_id' => $this->ga->id, 'dept_role_id' => $this->gaRoles['section_head'],
+        ]);
+        $gaStaff1 = $this->mkGaStaff('Bayu Firmansyah', 'ga.staff1@sankei.com');
+        $gaStaff2 = $this->mkGaStaff('Citra Ayu', 'ga.staff2@sankei.com');
+
+        $catUmum      = $this->gaCats['Umum'];
+        $catFasilitas = $this->gaCats['Fasilitas'];
+
+        // GA-WO1: Pending
+        $wo_ga1 = $this->makeGaWO($userProduksi, 'Pengadaan ATK Departemen Produksi', 'Stok ATK habis, perlu pengadaan ulang.', 'low', $catUmum);
+        $wo_ga1->addHistory($userProduksi->id, 'created', 'WO dibuat.');
+
+        // GA-WO2: Accepted — belum diassign ke staff
+        $wo_ga2 = $this->makeGaWO($userQC, 'Perbaikan AC Ruang Meeting', 'AC ruang meeting lantai 2 tidak dingin.', 'medium', $catFasilitas);
+        $wo_ga2->update(['status' => 'accepted', 'accepted_by' => $gaSectionHead->id, 'accepted_at' => now()->subHours(4), 'current_step_order' => 2]);
+        $wo_ga2->addHistory($userQC->id, 'created', 'WO dibuat.');
+        $wo_ga2->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
+
+        // GA-WO3: Assigned to staff — menunggu pengecekan material, leadtime belum mulai
+        $wo_ga3 = $this->makeGaWO($userIT, 'Pengadaan Meja Kerja Baru', 'Perlu 3 meja kerja baru untuk staff IT.', 'low', $catUmum);
+        $wo_ga3->update([
+            'status' => 'assigned_member', 'accepted_by' => $gaSectionHead->id,
+            'accepted_at' => now()->subDays(1), 'assigned_member_id' => $gaStaff1->id,
+            'deadline' => null, 'current_step_order' => 3,
+        ]);
+        $wo_ga3->addHistory($userIT->id, 'created', 'WO dibuat.');
+        $wo_ga3->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
+        $wo_ga3->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff1->name}. Leadtime akan mulai setelah pengecekan material.");
+
+        // GA-WO4: Material tersedia — leadtime sudah mulai, sedang dikerjakan
+        $wo_ga4 = $this->makeGaWO($userProduksi, 'Perbaikan Pintu Gudang', 'Pintu gudang bahan baku macet.', 'medium', $catFasilitas);
+        $accepted4 = now()->subDays(2);
+        $checked4  = now()->subDays(1);
+        $wo_ga4->update([
+            'status' => 'assigned_member', 'accepted_by' => $gaSectionHead->id,
+            'accepted_at' => $accepted4, 'assigned_member_id' => $gaStaff2->id,
+            'deadline' => $checked4->copy()->addDays(2), 'current_step_order' => 4,
+        ]);
+        $wo_ga4->addHistory($userProduksi->id, 'created', 'WO dibuat.');
+        $wo_ga4->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
+        $wo_ga4->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff2->name}. Leadtime akan mulai setelah pengecekan material.");
+        $wo_ga4->addHistory($gaStaff2->id, 'material_checked', "Material tersedia. Leadtime dimulai. Deadline: {$wo_ga4->deadline->format('d M Y')}.");
+
+        // GA-WO5: Material tidak tersedia — staff memesan PR sendiri, leadtime belum mulai
+        $wo_ga5 = $this->makeGaWO($userQC, 'Penggantian Karpet Ruang Direksi', 'Karpet ruang direksi sudah usang dan robek.', 'low', $catFasilitas);
+        $wo_ga5->update([
+            'status' => 'pending_parts', 'accepted_by' => $gaSectionHead->id,
+            'accepted_at' => now()->subDays(3), 'assigned_member_id' => $gaStaff1->id,
+            'deadline' => null, 'current_step_order' => 3,
+        ]);
+        WoPartOrder::create([
+            'wo_id' => $wo_ga5->id, 'requested_by' => $gaStaff1->id,
+            'request_note' => 'Karpet ukuran 4x6m warna abu-abu, belum ada stok.',
+            'status' => 'pending_warehouse',
+        ]);
+        $wo_ga5->addHistory($userQC->id, 'created', 'WO dibuat.');
+        $wo_ga5->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
+        $wo_ga5->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff1->name}. Leadtime akan mulai setelah pengecekan material.");
+        $wo_ga5->addHistory($gaStaff1->id, 'pending_parts', 'Material tidak tersedia. Memesan PR sendiri.');
+
+        // GA-WO6: Parts diterima sendiri oleh staff — leadtime baru mulai
+        $wo_ga6 = $this->makeGaWO($userIT, 'Pengadaan Kursi Kantor Ergonomis', 'Kursi kantor lama sudah rusak, perlu 5 unit baru.', 'medium', $catUmum);
+        $accepted6 = now()->subDays(10);
+        $received6 = now()->subHours(6);
+        $wo_ga6->update([
+            'status' => 'parts_received', 'accepted_by' => $gaSectionHead->id,
+            'accepted_at' => $accepted6, 'assigned_member_id' => $gaStaff2->id,
+            'deadline' => $received6->copy()->addDays(3), 'current_step_order' => 4,
+        ]);
+        WoPartOrder::create([
+            'wo_id' => $wo_ga6->id, 'requested_by' => $gaStaff2->id, 'handled_by' => $gaStaff2->id,
+            'pr_number' => 'PR-GA-2026-0001', 'status' => 'received',
+            'request_note' => 'Kursi ergonomis 5 unit, belum ada stok.',
+            'warehouse_note' => 'Barang sudah tiba dan diterima.',
+            'pr_date' => now()->subDays(9)->toDateString(),
+            'expected_arrival' => now()->subDay()->toDateString(),
+            'received_at' => $received6,
+        ]);
+        $wo_ga6->addHistory($userIT->id, 'created', 'WO dibuat.');
+        $wo_ga6->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
+        $wo_ga6->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff2->name}. Leadtime akan mulai setelah pengecekan material.");
+        $wo_ga6->addHistory($gaStaff2->id, 'pending_parts', 'Material tidak tersedia. Memesan PR sendiri.');
+        $wo_ga6->addHistory($gaStaff2->id, 'parts_received', 'Sparepart diterima. Siap dilanjutkan.');
+
+        // GA-WO7: Selesai dikerjakan — menunggu review requester
+        $wo_ga7 = $this->makeGaWO($userProduksi, 'Pembersihan Area Parkir', 'Area parkir karyawan perlu dibersihkan dan dicat ulang.', 'low', $catFasilitas);
+        $accepted7 = now()->subDays(4);
+        $wo_ga7->update([
+            'status' => 'completed', 'accepted_by' => $gaSectionHead->id,
+            'accepted_at' => $accepted7, 'assigned_member_id' => $gaStaff1->id,
+            'deadline' => $accepted7->copy()->addDays(3), 'completed_at' => now()->subHours(3),
+            'current_step_order' => 5,
+        ]);
+        $wo_ga7->addHistory($userProduksi->id, 'created', 'WO dibuat.');
+        $wo_ga7->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
+        $wo_ga7->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff1->name}. Leadtime akan mulai setelah pengecekan material.");
+        $wo_ga7->addHistory($gaStaff1->id, 'material_checked', 'Material tersedia. Leadtime dimulai.');
+        $wo_ga7->addHistory($gaStaff1->id, 'completed', 'Pekerjaan selesai.');
+
+        // Historical finished GA WOs
+        $this->finishedGaWO($userQC,       'Pengadaan Dispenser Air Kantor',    'Dispenser lama rusak, perlu penggantian.',     'low',    $gaStaff2, 30, 3, 0, 100, $userQC,       $gaSectionHead);
+        $this->finishedGaWO($userProduksi, 'Perbaikan Atap Bocor Gudang B',     'Atap gudang B bocor saat hujan deras.',        'high',   $gaStaff1, 45, 5, 1, 80,  $userProduksi, $gaSectionHead);
+
         // ── IT Superadmin ─────────────────────────────────────────────────────
         User::create([
             'name'          => 'IT Admin',
@@ -358,6 +466,9 @@ class DemoDataSeeder extends Seeder
         foreach (\App\Models\WoCategory::where('department_id', $this->qa->id)->get() as $c) {
             $this->qaCats[$c->name] = $c;
         }
+        foreach (\App\Models\WoCategory::where('department_id', $this->ga->id)->get() as $c) {
+            $this->gaCats[$c->name] = $c;
+        }
     }
 
     private function mkMember(string $name, string $email, MaintenanceUnit $unit, MaintenanceGroup $group): User
@@ -376,6 +487,15 @@ class DemoDataSeeder extends Seeder
             'name' => $name, 'email' => $email,
             'password' => Hash::make('password'), 'role' => 'qa_member', 'department' => 'QA',
             'department_id' => $this->qa->id, 'dept_role_id' => $this->qaRoles['member'],
+        ]);
+    }
+
+    private function mkGaStaff(string $name, string $email): User
+    {
+        return User::create([
+            'name' => $name, 'email' => $email,
+            'password' => Hash::make('password'), 'role' => 'member', 'department' => 'GA',
+            'department_id' => $this->ga->id, 'dept_role_id' => $this->gaRoles['staff'],
         ]);
     }
 
@@ -409,6 +529,49 @@ class DemoDataSeeder extends Seeder
             'status'               => 'pending',
             'current_step_order'   => 1,
         ]);
+    }
+
+    private function makeGaWO(User $requester, string $title, string $desc, string $priority, WoCategory $cat): WorkOrder
+    {
+        return WorkOrder::create([
+            'wo_number'            => WorkOrder::generateWoNumber(),
+            'title'                => $title, 'description' => $desc,
+            'category'             => 'general', 'priority' => $priority,
+            'requester_id'         => $requester->id,
+            'destination'          => 'ga',
+            'target_department_id' => $this->ga->id,
+            'wo_category_id'       => $cat->id,
+            'leadtime_days'        => $cat->leadtime_days,
+            'status'               => 'pending',
+            'current_step_order'   => 1,
+        ]);
+    }
+
+    private function finishedGaWO(
+        User $requester, string $title, string $desc, string $priority, User $staff,
+        int $daysAgo, int $completedDay, int $reworkCount, int $score, User $reviewer,
+        ?User $sectionHead = null
+    ): void {
+        $wo = $this->makeGaWO($requester, $title, $desc, $priority, $this->gaCats['Umum']);
+        $accepted = now()->subDays($daysAgo);
+        $wo->update([
+            'status' => 'finished', 'accepted_by' => $sectionHead?->id,
+            'accepted_at' => $accepted, 'assigned_member_id' => $staff->id,
+            'deadline' => $accepted->copy()->addDays(3),
+            'completed_at' => $accepted->copy()->addDays($completedDay),
+            'finished_at' => $accepted->copy()->addDays($completedDay + 1),
+            'rework_count' => $reworkCount, 'score' => $score,
+            'current_step_order' => null,
+        ]);
+        $wo->addHistory($requester->id, 'created', 'WO dibuat.');
+        $wo->addHistory($staff->id, 'assigned_member', "Diassign ke {$staff->name}.");
+        $wo->addHistory($staff->id, 'material_checked', 'Material tersedia. Leadtime dimulai.');
+        $wo->addHistory($staff->id, 'completed', 'Pekerjaan selesai.');
+        if ($reworkCount > 0) {
+            $wo->addHistory($reviewer->id, 'rework', 'Rework diminta.');
+            $wo->addHistory($staff->id, 'completed', 'Rework selesai.');
+        }
+        $wo->addHistory($reviewer->id, 'finished', "Pekerjaan disetujui. Skor: {$score}.");
     }
 
     private function finishedWO(
