@@ -4,20 +4,16 @@ namespace App\Services\Qad;
 
 use App\Models\QadItem;
 use Illuminate\Support\Collection;
-use RuntimeException;
+use SimpleXMLElement;
 
 class QadItemService
 {
-    public function __construct(private readonly QadSoapClient $soap) {}
-
-    /** Raw XML of the last SOAP response, kept for diagnosing an unverified endpoint. */
-    private ?string $lastRaw = null;
+    public function __construct(private readonly WsaService $wsa) {}
 
     public function raiseLimits(): void
     {
-        $seconds = max(60, (int) config('qad.timeout', 300));
-        ini_set('max_execution_time', (string) $seconds);
-        set_time_limit($seconds);
+        ini_set('max_execution_time', '300');
+        set_time_limit(300);
     }
 
     /**
@@ -29,7 +25,8 @@ class QadItemService
     }
 
     /**
-     * Pull the full item master from QAD and upsert into qad_items.
+     * Pull the item master (QAD Fixed Asset Register — t_fa_id is the item
+     * number) via the WSA broker and upsert into qad_items.
      *
      * @return array{synced: int, created: int, updated: int}
      */
@@ -37,17 +34,7 @@ class QadItemService
     {
         $this->raiseLimits();
 
-        $xml = $this->buildEnvelope('<wsat:SDI_getItemMasterExt/>');
-        $body = $this->callAndBody($xml);
-        $response = $body['SDI_getItemMasterExtResponse'] ?? null;
-
-        if ($response === null) {
-            throw new RuntimeException($this->faultMessage($body, 'SDI_getItemMasterExt'));
-        }
-
-        $rows = $this->normalizeRows($response['temp']['tempRow'] ?? []);
-        $prodLines = config('qad.prod_lines', []); // empty = no filter
-        $groupFilter = config('qad.group_filter');  // null/empty = no filter
+        [$rows] = $this->wsa->call('SDI_getFixedAsset');
 
         $now = now();
         $created = 0;
@@ -55,33 +42,23 @@ class QadItemService
         $batch = [];
 
         foreach ($rows as $row) {
-            if (! is_array($row)) {
+            $code = $this->text($row, 't_fa_id');
+
+            if ($code === null) {
                 continue;
             }
 
-            if ($prodLines && ! in_array($row['t_pt_prod_line'] ?? null, $prodLines, true)) {
-                continue;
-            }
-
-            if ($groupFilter && ($row['t_pt_group'] ?? null) !== $groupFilter) {
-                continue;
-            }
-
-            $code = $this->soap->sanitizeValue($row['t_pt_part'] ?? null);
-
-            if (blank($code)) {
-                continue;
-            }
+            $disposalDate = $this->text($row, 't_fa_disp_dt');
 
             $batch[] = [
                 'qad_code' => $code,
-                'description' => $this->soap->sanitizeValue($row['t_pt_desc1'] ?? null),
-                'part_number' => $this->soap->sanitizeValue($row['t_pt_desc2'] ?? null),
-                'qad_group' => $this->soap->sanitizeValue($row['t_pt_group'] ?? null),
-                'prod_line' => $this->soap->sanitizeValue($row['t_pt_prod_line'] ?? null),
-                'qad_status' => $this->soap->sanitizeValue($row['t_pt_status'] ?? null),
-                'location' => $this->soap->sanitizeValue($row['t_pt_location'] ?? null),
-                'is_active' => true,
+                'description' => $this->text($row, 't_fa_desc1'),
+                'part_number' => null,
+                'qad_group' => $this->text($row, 't_fa_facls_id'),
+                'prod_line' => null,
+                'qad_status' => $disposalDate ? 'DISPOSED' : 'ACTIVE',
+                'location' => $this->text($row, 't_fa_faloc_id'),
+                'is_active' => $disposalDate === null,
                 'last_synced_at' => $now,
                 'created_at' => $now,
                 'updated_at' => $now,
@@ -127,118 +104,10 @@ class QadItemService
         return [$created, $updated];
     }
 
-    /**
-     * Wraps an operation body fragment with the standard envelope AND the
-     * session-context auth block CODER's QAD instance needs.
-     *
-     * IMPORTANT: the element names/nesting below are a best-effort
-     * reconstruction based on the SDI_CreatePR SOAP example — verify against
-     * the real endpoint before relying on this; if QAD faults with an auth
-     * error, this is the one place to fix.
-     */
-    private function buildEnvelope(string $operationXml): string
+    private function text(SimpleXMLElement $row, string $field): ?string
     {
-        $wsa = config('qad.ws_namespace');
-        $domain = config('qad.domain');
-        $user = config('qad.username');
-        $pass = config('qad.password');
-        $version = config('qad.version');
+        $value = trim((string) ($row->{$field} ?? ''));
 
-        return <<<XML
-            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-                        xmlns:wsat="{$wsa}" xmlns:qcom="http://www.qad.com/custom">
-                <soapenv:Header>
-                    <qcom:QDocMsg>
-                        <control>
-                            <dsSessionContext>
-                                <ttContext>
-                                    <property><name>domain</name><value>{$domain}</value></property>
-                                    <property><name>userid</name><value>{$user}</value></property>
-                                    <property><name>password</name><value>{$pass}</value></property>
-                                    <property><name>version</name><value>{$version}</value></property>
-                                </ttContext>
-                            </dsSessionContext>
-                        </control>
-                    </qcom:QDocMsg>
-                </soapenv:Header>
-                <soapenv:Body>
-                    {$operationXml}
-                </soapenv:Body>
-            </soapenv:Envelope>
-        XML;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function callAndBody(string $xml): array
-    {
-        $response = $this->soap->call($xml);
-        $this->lastRaw = $response['raw'] ?? null;
-
-        if ($response['is_error']) {
-            $message = $response['message'] ?? 'QAD SOAP call failed.';
-            if ($this->lastRaw) {
-                $message .= ' | Raw response: '.$this->truncate($this->lastRaw);
-            }
-            throw new RuntimeException($message);
-        }
-
-        $data = $response['data'] ?? [];
-
-        foreach ($data as $key => $value) {
-            if (is_string($key) && (str_ends_with($key, ':Envelope') || $key === 'Envelope') && is_array($value)) {
-                $data = $value;
-                break;
-            }
-        }
-
-        foreach ($data as $key => $value) {
-            if (is_string($key) && (str_ends_with($key, ':Body') || $key === 'Body') && is_array($value)) {
-                return $value;
-            }
-        }
-
-        return [];
-    }
-
-    private function faultMessage(array $body, string $operation): string
-    {
-        $fault = $body['SOAP-ENV:Fault']['detail']['ns1:FaultDetail']['errorMessage']
-            ?? $body['SOAP-ENV:Fault']['faultstring']
-            ?? null;
-
-        if ($fault) {
-            return "QAD Message ({$operation}): {$fault}";
-        }
-
-        $message = "Unexpected QAD response for {$operation} — expected key '{$operation}Response' not found.";
-
-        if ($this->lastRaw) {
-            $message .= ' | Raw response: '.$this->truncate($this->lastRaw);
-        }
-
-        return $message;
-    }
-
-    private function truncate(string $text, int $limit = 2000): string
-    {
-        return strlen($text) > $limit ? substr($text, 0, $limit).'…(truncated)' : $text;
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function normalizeRows(mixed $rows): array
-    {
-        if (! is_array($rows) || $rows === []) {
-            return [];
-        }
-
-        if (array_is_list($rows)) {
-            return array_values(array_filter($rows, 'is_array'));
-        }
-
-        return [$rows];
+        return $value === '' ? null : $value;
     }
 }
