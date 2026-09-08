@@ -207,7 +207,10 @@ class WorkOrderController extends Controller
 
         $canEdit = $canAct || $canCancel
             || $workOrder->requester_id === $user->id
-            || ($user->isWarehouseMtc() && in_array($workOrder->status, ['pending_parts', 'parts_ordered', 'parts_received']));
+            || ($user->isWarehouseMtc() && in_array($workOrder->status, ['pending_parts', 'parts_ordered', 'parts_received']))
+            // Self-service PR flow (e.g. GA's material_check): the WO's own
+            // assigned staffer manages their own order while it's in progress.
+            || ($user->id === $workOrder->assigned_member_id && in_array($workOrder->status, ['pending_parts', 'parts_ordered', 'parts_received']));
 
         // Assignable options for assign steps
         $assignableGroups  = collect();
