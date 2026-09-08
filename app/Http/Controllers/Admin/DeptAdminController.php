@@ -190,6 +190,7 @@ class DeptAdminController extends Controller
             'action_label'       => 'required|string|max:100',
             'reject_label'       => 'nullable|string|max:100',
             'auto_advance_hours' => 'nullable|integer|min:1|max:720',
+            'rework_additional_hours' => 'nullable|integer|min:1|max:720',
         ]);
 
         $validated['department_id'] = $dept->id;
@@ -218,6 +219,7 @@ class DeptAdminController extends Controller
             'action_label'       => 'required|string|max:100',
             'reject_label'       => 'nullable|string|max:100',
             'auto_advance_hours' => 'nullable|integer|min:1|max:720',
+            'rework_additional_hours' => 'nullable|integer|min:1|max:720',
         ]);
 
         $validated['can_reject']  = $request->boolean('can_reject');

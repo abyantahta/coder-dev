@@ -120,11 +120,13 @@ class WorkOrderController extends Controller
             'title'                => 'required|string|max:200',
             'description'          => 'required|string',
             'category'             => 'nullable|string|max:100',
-            'priority'             => 'required|in:low,medium,high,urgent',
             'target_department_id' => 'required|exists:departments,id',
             'wo_category_id'       => 'required|exists:wo_categories,id',
             'attachment'           => 'nullable|file|mimes:pdf,png|max:5120',
         ]);
+
+        // Priority is no longer asked for at creation — default to medium.
+        $validated['priority'] = 'medium';
 
         $dept     = Department::findOrFail($validated['target_department_id']);
         $woCategory = WoCategory::findOrFail($validated['wo_category_id']);

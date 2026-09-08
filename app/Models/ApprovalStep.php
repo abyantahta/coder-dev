@@ -11,7 +11,7 @@ class ApprovalStep extends Model
         'department_id', 'step_order', 'name', 'actor_role_id',
         'step_type', 'can_reject', 'can_forward', 'can_assign',
         'assigns_to_role_key', 'action_label', 'reject_label',
-        'auto_advance_hours',
+        'auto_advance_hours', 'rework_additional_hours',
     ];
 
     protected $casts = [

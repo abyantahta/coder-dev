@@ -15,6 +15,9 @@ use Illuminate\Support\Str;
 
 class ApprovalService
 {
+    /** Fallback when a requester_review step has no rework_additional_hours configured. */
+    private const DEFAULT_REWORK_ADDITIONAL_HOURS = 48;
+
     public function canAct(User $user, WorkOrder $wo): bool
     {
         $step = $wo->currentStep();
@@ -75,6 +78,12 @@ class ApprovalService
         $dept = Department::findOrFail($targetDeptId);
         $wo->update([
             'status'               => 'pending',
+            // Keep the legacy `destination` enum in sync with the new
+            // target_department_id — WorkOrderController::index()'s listing
+            // still filters by `destination` for several roles, so leaving
+            // it stale made a forwarded WO invisible in the new department's
+            // queue.
+            'destination'          => $dept->slug,
             'forwarded_to'         => $dept->slug,
             'forward_reason'       => $reason,
             'target_department_id' => $targetDeptId,
@@ -287,8 +296,18 @@ class ApprovalService
                 ->orderByDesc('step_order')
                 ->first();
 
+            $reviewStep = $wo->currentStep();
+            $additionalHours = $reviewStep?->rework_additional_hours ?? self::DEFAULT_REWORK_ADDITIONAL_HOURS;
+
+            // If the original deadline hasn't passed yet, the extra time is
+            // added on top of what's left (deadline + N hours). If it's
+            // already passed, the extra time starts counting from now
+            // (now + N hours) instead — configurable per department/step via
+            // rework_additional_hours.
+            $base = ($wo->deadline && $wo->deadline->isFuture()) ? $wo->deadline : now();
+
             $reworkCount    = ($wo->rework_count ?? 0) + 1;
-            $reworkDeadline = $this->addWorkingDays(now(), 2);
+            $reworkDeadline = $base->copy()->addHours($additionalHours);
             $wo->update([
                 'status'              => 'rework',
                 'rework_count'        => $reworkCount,
@@ -297,7 +316,7 @@ class ApprovalService
                 'review_note'         => $request->review_note,
                 'current_step_order'  => $completionStep?->step_order ?? $wo->current_step_order,
             ]);
-            $wo->addHistory($actor->id, 'rework', "Rework #{$reworkCount} diminta. Deadline: {$reworkDeadline->format('d M Y')}.");
+            $wo->addHistory($actor->id, 'rework', "Rework #{$reworkCount} diminta (+{$additionalHours} jam). Deadline: {$reworkDeadline->format('d M Y, H:i')}.");
         }
     }
 

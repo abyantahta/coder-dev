@@ -28,31 +28,19 @@
                 @error('description') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
             </div>
 
-            {{-- Tujuan & Prioritas --}}
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Kirim Ke (Departemen) <span class="text-red-500">*</span></label>
-                    <select name="target_department_id" id="dept-select" required
-                        class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('target_department_id') border-red-400 @enderror">
-                        <option value="">— Pilih Departemen —</option>
-                        @foreach ($departments as $dept)
-                            <option value="{{ $dept->id }}" {{ old('target_department_id') == $dept->id ? 'selected' : '' }}>
-                                {{ $dept->name }} ({{ $dept->code }})
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('target_department_id') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Prioritas <span class="text-red-500">*</span></label>
-                    <select name="priority" required
-                        class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="low"    {{ old('priority') === 'low'    ? 'selected' : '' }}>Low</option>
-                        <option value="medium" {{ old('priority', 'medium') === 'medium' ? 'selected' : '' }}>Medium</option>
-                        <option value="high"   {{ old('priority') === 'high'   ? 'selected' : '' }}>High</option>
-                        <option value="urgent" {{ old('priority') === 'urgent' ? 'selected' : '' }}>Urgent</option>
-                    </select>
-                </div>
+            {{-- Tujuan --}}
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Kirim Ke (Departemen) <span class="text-red-500">*</span></label>
+                <select name="target_department_id" id="dept-select" required
+                    class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('target_department_id') border-red-400 @enderror">
+                    <option value="">— Pilih Departemen —</option>
+                    @foreach ($departments as $dept)
+                        <option value="{{ $dept->id }}" {{ old('target_department_id') == $dept->id ? 'selected' : '' }}>
+                            {{ $dept->name }} ({{ $dept->code }})
+                        </option>
+                    @endforeach
+                </select>
+                @error('target_department_id') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
             </div>
 
             {{-- WO Category (dept-specific) --}}

@@ -133,6 +133,17 @@
                 <p class="text-xs text-slate-400 mt-1">Otomatis lanjut jika tidak ada aksi dalam N jam.</p>
             </div>
 
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Additional Time Rework (jam, khusus requester_review)</label>
+                <input type="number" name="rework_additional_hours" id="step-rework-hours" min="1" max="720"
+                    class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="48 (default jika kosong)">
+                <p class="text-xs text-slate-400 mt-1">
+                    Saat rework diminta: deadline baru = sisa waktu (jika masih ada) + N jam,
+                    atau sekarang + N jam (jika deadline sudah lewat).
+                </p>
+            </div>
+
             <div class="flex items-center gap-4 flex-wrap">
                 <label class="flex items-center gap-2 text-sm text-slate-700">
                     <input type="checkbox" name="can_reject" id="step-can-reject" value="1" class="rounded"> Bisa Reject
@@ -174,6 +185,7 @@ function openEditStep(id, step) {
     document.getElementById('step-reject-label').value   = step.reject_label || '';
     document.getElementById('step-assigns-key').value    = step.assigns_to_role_key || '';
     document.getElementById('step-auto-hours').value     = step.auto_advance_hours || '';
+    document.getElementById('step-rework-hours').value   = step.rework_additional_hours || '';
     document.getElementById('step-can-reject').checked   = !!step.can_reject;
     document.getElementById('step-can-forward').checked  = !!step.can_forward;
     document.getElementById('step-can-assign').checked   = !!step.can_assign;

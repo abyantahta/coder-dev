@@ -212,14 +212,15 @@ class DepartmentSeeder extends Seeder
             'action_label'  => 'Tandai Selesai',
         ]);
         ApprovalStep::create([
-            'department_id'      => $qa->id, 'step_order' => 4,
-            'name'               => 'Review oleh Requester',
-            'actor_role_id'      => null,
-            'step_type'          => 'requester_review',
-            'can_reject'         => true,
-            'action_label'       => 'Setujui Pekerjaan',
-            'reject_label'       => 'Minta Rework',
-            'auto_advance_hours' => 48,
+            'department_id'           => $qa->id, 'step_order' => 4,
+            'name'                    => 'Review oleh Requester',
+            'actor_role_id'           => null,
+            'step_type'               => 'requester_review',
+            'can_reject'              => true,
+            'action_label'            => 'Setujui Pekerjaan',
+            'reject_label'            => 'Minta Rework',
+            'auto_advance_hours'      => 48,
+            'rework_additional_hours' => 24,
         ]);
     }
 }
