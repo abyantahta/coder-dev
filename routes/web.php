@@ -50,9 +50,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/work-orders/{workOrder}/forward', [WorkOrderController::class, 'forward'])->name('work-orders.forward');
     Route::post('/work-orders/{workOrder}/check-parts', [WorkOrderController::class, 'checkParts'])->name('work-orders.check-parts');
 
-    // Warehouse MTC
+    // Warehouse MTC — dedicated warehouse dashboard, role-gated
     Route::middleware('role:warehouse_mtc,section_head')->prefix('warehouse')->name('warehouse.')->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('index');
+    });
+
+    // Part-order management — dedicated warehouse staff manage any order;
+    // a WO's own assigned staffer can manage their own (self-service PR,
+    // e.g. GA's material_check step). Authorized per-request in the
+    // controller (WarehouseController::canManageOrder), not by role here.
+    Route::prefix('warehouse')->name('warehouse.')->group(function () {
         Route::post('/work-orders/{workOrder}/create-pr', [WarehouseController::class, 'createPr'])->name('create-pr');
         Route::post('/orders/{partOrder}/receive', [WarehouseController::class, 'receive'])->name('receive');
         Route::get('/orders/{partOrder}', [WarehouseController::class, 'showOrder'])->name('orders.show');
@@ -85,8 +92,8 @@ Route::middleware('auth')->group(function () {
         ->name('performance.qa')
         ->middleware('role:qa_group_head,qa_section_head');
 
-    // Admin — User Management (Section Head MTC + Section Head QA, each scoped to own department)
-    Route::middleware('role:section_head,qa_section_head')->prefix('admin')->name('admin.')->group(function () {
+    // Admin — User Management (Section Head MTC/QA/GA, each scoped to own department)
+    Route::middleware('role:section_head,qa_section_head,ga_section_head')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserManagementController::class, 'create'])->name('users.create');
         Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');

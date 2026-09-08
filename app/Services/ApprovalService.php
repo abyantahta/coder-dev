@@ -25,7 +25,8 @@ class ApprovalService
 
         return match ($step->step_type) {
             'requester_review' => $wo->status === 'completed' && $user->id === $wo->requester_id,
-            'completion'       => in_array($wo->status, ['assigned_member', 'rework']) && $user->id === $wo->assigned_member_id,
+            'completion'       => in_array($wo->status, ['assigned_member', 'parts_received', 'rework']) && $user->id === $wo->assigned_member_id,
+            'material_check'   => $wo->status === 'assigned_member' && $user->id === $wo->assigned_member_id,
             default            => $step->actor_role_id !== null && $user->dept_role_id === $step->actor_role_id,
         };
     }
@@ -52,6 +53,7 @@ class ApprovalService
             'standard'          => $this->handleStandard($wo, $actor),
             'spare_parts_check' => $this->handleSparePartsCheck($wo, $actor, $request),
             'assign'            => $this->handleAssign($wo, $actor, $step, $request),
+            'material_check'    => $this->handleMaterialCheck($wo, $actor, $request),
             'completion'        => $this->handleCompletion($wo, $actor, $request),
             'requester_review'  => $this->handleRequesterReview($wo, $actor, $request),
             default             => abort(400, 'Tipe step tidak dikenali.'),
@@ -99,9 +101,13 @@ class ApprovalService
         $wo->update([
             'status'             => 'parts_received',
             'parts_ready_at'     => now(),
+            // Deferred-leadtime flows (e.g. GA's material_check) never set a
+            // deadline at assign time — start it now that parts are in hand.
+            // No-op for flows that already set it (e.g. Maintenance).
+            'deadline'           => $wo->deadline ?? $this->addWorkingDays(now(), $wo->leadtime_days ?? 7),
             'current_step_order' => $next?->step_order ?? $wo->current_step_order,
         ]);
-        $wo->addHistory($actor->id, 'parts_received', 'Sparepart diterima Warehouse-MTC. Siap dilanjutkan.');
+        $wo->addHistory($actor->id, 'parts_received', 'Sparepart diterima. Siap dilanjutkan.');
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -168,6 +174,41 @@ class ApprovalService
         $wo->addHistory($actor->id, 'pending_parts', 'Sparepart tidak tersedia. Diteruskan ke Warehouse-MTC.');
     }
 
+    /**
+     * The assigned staffer checks material availability themselves. If
+     * available, the leadtime starts now. If not, they order their own PR
+     * (self-service — see WarehouseController) and the leadtime starts once
+     * onPartsReceived() marks it received.
+     */
+    private function handleMaterialCheck(WorkOrder $wo, User $actor, Request $request): void
+    {
+        $request->validate([
+            'decision' => 'required|in:available,unavailable',
+            'note'     => 'required_if:decision,unavailable|nullable|string|max:1000',
+        ]);
+
+        if ($request->decision === 'unavailable') {
+            WoPartOrder::where('wo_id', $wo->id)->where('status', 'pending_warehouse')->delete();
+            WoPartOrder::create([
+                'wo_id'        => $wo->id,
+                'requested_by' => $actor->id,
+                'request_note' => $request->note,
+                'status'       => 'pending_warehouse',
+            ]);
+            $wo->update(['status' => 'pending_parts']);
+            $wo->addHistory($actor->id, 'pending_parts', 'Material tidak tersedia. Memesan PR sendiri.');
+            return;
+        }
+
+        $next     = $this->nextStep($wo);
+        $deadline = $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+        $wo->update([
+            'deadline'           => $deadline,
+            'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+        ]);
+        $wo->addHistory($actor->id, 'material_checked', "Material tersedia. Leadtime dimulai. Deadline: {$deadline->format('d M Y')}.");
+    }
+
     private function handleAssign(WorkOrder $wo, User $actor, ApprovalStep $step, Request $request): void
     {
         $next = $this->nextStep($wo);
@@ -185,15 +226,25 @@ class ApprovalService
             $wo->addHistory($actor->id, 'assigned_group', "Diassign ke group {$group->name}.");
         } else {
             $request->validate(['member_id' => 'required|integer|exists:users,id']);
-            $member   = User::findOrFail($request->member_id);
-            $deadline = $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+            $member = User::findOrFail($request->member_id);
+
+            // If the next step checks material availability, the leadtime
+            // hasn't started yet — defer the deadline to handleMaterialCheck()
+            // / onPartsReceived() instead of setting it here.
+            $deadline = $next?->step_type === 'material_check'
+                ? null
+                : $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+
             $wo->update([
                 'status'             => 'assigned_member',
                 'assigned_member_id' => $member->id,
                 'deadline'           => $deadline,
                 'current_step_order' => $next?->step_order ?? $wo->current_step_order,
             ]);
-            $wo->addHistory($actor->id, 'assigned_member', "Diassign ke {$member->name}. Deadline: {$deadline->format('d M Y')}.");
+
+            $wo->addHistory($actor->id, 'assigned_member', $deadline
+                ? "Diassign ke {$member->name}. Deadline: {$deadline->format('d M Y')}."
+                : "Diassign ke {$member->name}. Leadtime akan mulai setelah pengecekan material.");
         }
     }
 

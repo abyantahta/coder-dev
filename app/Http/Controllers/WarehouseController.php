@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\QadItem;
+use App\Models\User;
 use App\Models\WoPartOrder;
 use App\Models\WoPartOrderLine;
 use App\Models\WorkOrder;
@@ -77,11 +78,11 @@ class WarehouseController extends Controller
         ));
     }
 
-    // Warehouse creates PR for a WO
+    // Warehouse — or the WO's own assigned staffer, acting as their own warehouse — creates a PR
     public function createPr(Request $request, WorkOrder $workOrder)
     {
         $user = Auth::user();
-        abort_unless($user->isWarehouseMtc() || $user->isSectionHead(), 403);
+        abort_unless($this->canManageOrder($user, $workOrder), 403);
         abort_unless($workOrder->status === 'pending_parts', 422, 'WO tidak dalam status menunggu parts.');
 
         $request->validate([
@@ -112,11 +113,11 @@ class WarehouseController extends Controller
         return back()->with('success', "PR {$request->pr_number} berhasil dibuat. Estimasi tiba " . now()->addDays(30)->format('d M Y') . '.');
     }
 
-    // Warehouse receives the parts
+    // Warehouse — or the WO's own assigned staffer — receives the parts
     public function receive(Request $request, WoPartOrder $partOrder, ApprovalService $service)
     {
         $actor = Auth::user();
-        abort_unless($actor->isWarehouseMtc() || $actor->isSectionHead(), 403);
+        abort_unless($this->canManageOrder($actor, $partOrder->workOrder), 403);
         abort_unless($partOrder->status === 'pr_created', 422);
 
         $request->validate(['note' => 'nullable|string|max:500']);
@@ -136,6 +137,7 @@ class WarehouseController extends Controller
     public function showOrder(Request $request, WoPartOrder $partOrder)
     {
         $partOrder->load(['workOrder.requester', 'lines.qadItem', 'requestedBy', 'handledBy']);
+        abort_unless($this->canManageOrder(Auth::user(), $partOrder->workOrder), 403);
 
         $results = $request->filled('q')
             ? QadItem::active()->search($request->q)->orderBy('description')->limit(30)->get()
@@ -148,7 +150,7 @@ class WarehouseController extends Controller
     public function addLine(Request $request, WoPartOrder $partOrder)
     {
         $user = Auth::user();
-        abort_unless($user->isWarehouseMtc() || $user->isSectionHead(), 403);
+        abort_unless($this->canManageOrder($user, $partOrder->workOrder), 403);
         abort_unless($partOrder->status === 'pending_warehouse', 422, 'Order sudah diproses.');
 
         $request->validate([
@@ -193,12 +195,24 @@ class WarehouseController extends Controller
     public function removeLine(WoPartOrder $partOrder, WoPartOrderLine $line)
     {
         $user = Auth::user();
-        abort_unless($user->isWarehouseMtc() || $user->isSectionHead(), 403);
+        abort_unless($this->canManageOrder($user, $partOrder->workOrder), 403);
         abort_unless($partOrder->status === 'pending_warehouse', 422, 'Order sudah diproses.');
         abort_unless($line->wo_part_order_id === $partOrder->id, 404);
 
         $line->delete();
 
         return back()->with('success', 'Item dihapus.');
+    }
+
+    /**
+     * Dedicated warehouse staff can manage any order; a WO's own assigned
+     * staffer can manage their own order too (self-service PR flow, e.g.
+     * GA's material_check step).
+     */
+    private function canManageOrder(User $user, WorkOrder $workOrder): bool
+    {
+        return $user->isWarehouseMtc()
+            || $user->isSectionHead()
+            || $user->id === $workOrder->assigned_member_id;
     }
 }

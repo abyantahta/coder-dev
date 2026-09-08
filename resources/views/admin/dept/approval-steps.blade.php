@@ -86,6 +86,7 @@
                     <option value="standard">standard — terima/tolak/forward</option>
                     <option value="spare_parts_check">spare_parts_check — cek sparepart MTC</option>
                     <option value="assign">assign — pilih user yang ditugaskan</option>
+                    <option value="material_check">material_check — staff cek ketersediaan material</option>
                     <option value="completion">completion — user selesai mengerjakan</option>
                     <option value="requester_review">requester_review — requester approve/rework</option>
                 </select>

@@ -37,7 +37,7 @@ class ApprovalStep extends Model
 
     public function isActedByAssignedMember(): bool
     {
-        return $this->step_type === 'completion';
+        return in_array($this->step_type, ['completion', 'material_check'], true);
     }
 
     public function isActedByRole(): bool

@@ -239,14 +239,20 @@
         {{-- Waiting for Warehouse --}}
         @if (in_array($workOrder->status, ['pending_parts', 'parts_ordered']))
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
-            <h3 class="font-semibold text-amber-800 mb-1">Menunggu Sparepart dari Warehouse</h3>
+            <h3 class="font-semibold text-amber-800 mb-1">Menunggu Sparepart</h3>
             <p class="text-sm text-amber-700">
                 @if ($workOrder->status === 'parts_ordered')
                     PR sudah dibuat. Menunggu barang tiba dari supplier.
                 @else
-                    Permintaan parts telah dikirim ke Warehouse-MTC. Menunggu konfirmasi.
+                    Permintaan parts sedang diproses. Menunggu konfirmasi.
                 @endif
             </p>
+            @if ($workOrder->partOrder && ($user->id === $workOrder->assigned_member_id || $user->isWarehouseMtc() || $user->isSectionHead()))
+            <a href="{{ route('warehouse.orders.show', $workOrder->partOrder) }}"
+                class="inline-block mt-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+                Kelola Pemesanan Part →
+            </a>
+            @endif
         </div>
         @endif
 
@@ -397,6 +403,37 @@
                 </select>
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
                     {{ $currentStep->action_label }}
+                </button>
+            </form>
+
+            {{-- MATERIAL CHECK (assigned staff checks availability themselves) --}}
+            @elseif ($stepType === 'material_check')
+            <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
+            <p class="text-xs text-slate-500 mb-4">Leadtime pengerjaan mulai berjalan setelah material dipastikan tersedia.</p>
+
+            <div class="flex gap-3 flex-wrap">
+                <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="flex-1 min-w-[160px]">
+                    @csrf
+                    <input type="hidden" name="decision" value="available">
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg text-sm transition">
+                        ✓ Material Tersedia
+                    </button>
+                </form>
+                <button type="button" onclick="document.getElementById('material-unavailable-form').classList.toggle('hidden')"
+                    class="flex-1 min-w-[160px] bg-red-50 hover:bg-red-100 text-red-700 font-semibold py-2.5 rounded-lg text-sm transition">
+                    ✗ Material Tidak Ada
+                </button>
+            </div>
+
+            <form method="POST" action="{{ route('approval.advance', $workOrder) }}"
+                  id="material-unavailable-form" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-4 mt-3">
+                @csrf
+                <input type="hidden" name="decision" value="unavailable">
+                <p class="text-sm font-medium text-red-700 mb-2">Catatan Pemesanan</p>
+                <textarea name="note" rows="3" required placeholder="Material apa yang perlu dipesan…"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-2"></textarea>
+                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+                    Pesan Material
                 </button>
             </form>
 

@@ -71,6 +71,8 @@ class WorkOrderController extends Controller
                 $query->where('destination', 'qa');
             } elseif ($user->isQaMember()) {
                 $query->where('assigned_member_id', $user->id);
+            } elseif ($user->isGaSectionHead()) {
+                $query->where('destination', 'ga');
             } else {
                 $query->where('requester_id', $user->id);
             }

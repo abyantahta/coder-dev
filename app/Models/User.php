@@ -73,6 +73,7 @@ class User extends Authenticatable
     public function isQaMember(): bool       { return $this->role === 'qa_member'; }
     public function isQaSectionHead(): bool  { return $this->role === 'qa_section_head'; }
     public function isQaStaff(): bool        { return in_array($this->role, ['qa_group_head', 'qa_member', 'qa_section_head']); }
+    public function isGaSectionHead(): bool  { return $this->role === 'ga_section_head'; }
     public function isMaintenanceStaff(): bool
     {
         return in_array($this->role, ['section_head', 'unit_head', 'group_head', 'member']);
@@ -109,6 +110,7 @@ class User extends Authenticatable
             'qa_group_head'  => 'QA Group Head',
             'qa_member'      => 'QA Member',
             'qa_section_head' => 'QA Section Head',
+            'ga_section_head' => 'GA Section Head',
             'user'          => 'User',
             default         => ucfirst($role),
         };

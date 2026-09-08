@@ -100,6 +100,7 @@
                     <option value="qa_member" {{ old('role') === 'qa_member' ? 'selected' : '' }}>QA Member</option>
                     <option value="qa_group_head" {{ old('role') === 'qa_group_head' ? 'selected' : '' }}>QA Group Head</option>
                     <option value="qa_section_head" {{ old('role') === 'qa_section_head' ? 'selected' : '' }}>QA Section Head</option>
+                    <option value="ga_section_head" {{ old('role') === 'ga_section_head' ? 'selected' : '' }}>GA Section Head</option>
                 </select>
             </div>
             <div class="col-span-2">
@@ -208,7 +209,7 @@
                                     <label class="block text-xs font-medium text-slate-600 mb-1">Role (sistem)</label>
                                     <select name="role"
                                         class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                                        @foreach (['user','member','group_head','unit_head','section_head','warehouse_mtc','qa_member','qa_group_head','qa_section_head'] as $r)
+                                        @foreach (['user','member','group_head','unit_head','section_head','warehouse_mtc','qa_member','qa_group_head','qa_section_head','ga_section_head'] as $r)
                                         <option value="{{ $r }}" {{ $u->role === $r ? 'selected' : '' }}>{{ ucwords(str_replace('_',' ',$r)) }}</option>
                                         @endforeach
                                     </select>

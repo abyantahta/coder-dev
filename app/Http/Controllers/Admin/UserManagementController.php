@@ -14,32 +14,40 @@ use Illuminate\Validation\Rules\Password;
 class UserManagementController extends Controller
 {
     private const QA_ROLES  = ['qa_section_head', 'qa_group_head', 'qa_member'];
+    private const GA_ROLES  = ['ga_section_head', 'member'];
     private const MTC_ROLES = ['section_head', 'unit_head', 'group_head', 'member', 'warehouse_mtc', 'user'];
 
     private function allowedRoles(User $actor): array
     {
-        return $actor->isQaSectionHead() ? self::QA_ROLES : self::MTC_ROLES;
+        if ($actor->isQaSectionHead()) return self::QA_ROLES;
+        if ($actor->isGaSectionHead()) return self::GA_ROLES;
+        return self::MTC_ROLES;
     }
 
     private function scopeQuery(User $actor)
     {
-        return $actor->isQaSectionHead()
-            ? User::where('department', 'QA')
-            : User::where('department', '!=', 'QA');
+        if ($actor->isQaSectionHead()) return User::where('department', 'QA');
+        if ($actor->isGaSectionHead()) return User::where('department', 'GA');
+        return User::whereNotIn('department', ['QA', 'GA']);
+    }
+
+    private function unitsFor(User $actor)
+    {
+        return ($actor->isQaSectionHead() || $actor->isGaSectionHead()) ? collect() : MaintenanceUnit::with('groups')->get();
     }
 
     public function index()
     {
         $actor  = Auth::user();
         $users  = $this->scopeQuery($actor)->with(['unit', 'group'])->orderBy('role')->orderBy('name')->get();
-        $units  = $actor->isQaSectionHead() ? collect() : MaintenanceUnit::with('groups')->get();
+        $units  = $this->unitsFor($actor);
         return view('admin.users.index', compact('users', 'units'));
     }
 
     public function create()
     {
         $actor = Auth::user();
-        $units = $actor->isQaSectionHead() ? collect() : MaintenanceUnit::with('groups')->get();
+        $units = $this->unitsFor($actor);
         $roles = $this->allowedRoles($actor);
         return view('admin.users.create', compact('units', 'roles'));
     }
@@ -61,6 +69,8 @@ class UserManagementController extends Controller
 
         if ($actor->isQaSectionHead()) {
             $validated['department'] = 'QA';
+        } elseif ($actor->isGaSectionHead()) {
+            $validated['department'] = 'GA';
         }
 
         User::create([
@@ -76,7 +86,7 @@ class UserManagementController extends Controller
         $actor = Auth::user();
         abort_unless($this->scopeQuery($actor)->whereKey($user->id)->exists(), 403);
 
-        $units = $actor->isQaSectionHead() ? collect() : MaintenanceUnit::with('groups')->get();
+        $units = $this->unitsFor($actor);
         $roles = $this->allowedRoles($actor);
         return view('admin.users.edit', compact('user', 'units', 'roles'));
     }
@@ -99,6 +109,8 @@ class UserManagementController extends Controller
 
         if ($actor->isQaSectionHead()) {
             $validated['department'] = 'QA';
+        } elseif ($actor->isGaSectionHead()) {
+            $validated['department'] = 'GA';
         }
 
         if ($request->filled('password')) {
