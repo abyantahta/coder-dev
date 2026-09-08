@@ -137,15 +137,24 @@ class DepartmentSeeder extends Seeder
             'assigns_to_role_key'=> 'staff',
             'action_label'       => 'Assign ke Staff GA',
         ]);
+        // Staff itself checks material availability; leadtime starts here
+        // (immediately if available, or once a self-ordered PR is received).
         ApprovalStep::create([
             'department_id' => $ga->id, 'step_order' => 3,
+            'name'          => 'Pengecekan Material',
+            'actor_role_id' => null,
+            'step_type'     => 'material_check',
+            'action_label'  => 'Material Tersedia',
+        ]);
+        ApprovalStep::create([
+            'department_id' => $ga->id, 'step_order' => 4,
             'name'          => 'Penyelesaian Pekerjaan',
             'actor_role_id' => null,
             'step_type'     => 'completion',
             'action_label'  => 'Tandai Selesai',
         ]);
         ApprovalStep::create([
-            'department_id'      => $ga->id, 'step_order' => 4,
+            'department_id'      => $ga->id, 'step_order' => 5,
             'name'               => 'Review oleh Requester',
             'actor_role_id'      => null,
             'step_type'          => 'requester_review',
