@@ -10,6 +10,9 @@ class QadItemService
 {
     public function __construct(private readonly QadSoapClient $soap) {}
 
+    /** Raw XML of the last SOAP response, kept for diagnosing an unverified endpoint. */
+    private ?string $lastRaw = null;
+
     public function raiseLimits(): void
     {
         $seconds = max(60, (int) config('qad.timeout', 300));
@@ -171,9 +174,14 @@ class QadItemService
     private function callAndBody(string $xml): array
     {
         $response = $this->soap->call($xml);
+        $this->lastRaw = $response['raw'] ?? null;
 
         if ($response['is_error']) {
-            throw new RuntimeException($response['message'] ?? 'QAD SOAP call failed.');
+            $message = $response['message'] ?? 'QAD SOAP call failed.';
+            if ($this->lastRaw) {
+                $message .= ' | Raw response: '.$this->truncate($this->lastRaw);
+            }
+            throw new RuntimeException($message);
         }
 
         $data = $response['data'] ?? [];
@@ -200,9 +208,22 @@ class QadItemService
             ?? $body['SOAP-ENV:Fault']['faultstring']
             ?? null;
 
-        return $fault
-            ? "QAD Message ({$operation}): {$fault}"
-            : "Unexpected QAD response for {$operation}.";
+        if ($fault) {
+            return "QAD Message ({$operation}): {$fault}";
+        }
+
+        $message = "Unexpected QAD response for {$operation} — expected key '{$operation}Response' not found.";
+
+        if ($this->lastRaw) {
+            $message .= ' | Raw response: '.$this->truncate($this->lastRaw);
+        }
+
+        return $message;
+    }
+
+    private function truncate(string $text, int $limit = 2000): string
+    {
+        return strlen($text) > $limit ? substr($text, 0, $limit).'…(truncated)' : $text;
     }
 
     /**

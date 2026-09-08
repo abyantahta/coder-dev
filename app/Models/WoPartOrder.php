@@ -68,10 +68,10 @@ class WoPartOrder extends Model
     public static function statusColor(string $status): string
     {
         return match ($status) {
-            'pending_warehouse' => 'bg-yellow-100 text-yellow-800',
-            'pr_created'        => 'bg-blue-100 text-blue-800',
-            'received'          => 'bg-green-100 text-green-800',
-            default             => 'bg-gray-100 text-gray-600',
+            'pending_warehouse' => 'tone-gold',
+            'pr_created'        => 'tone-steel',
+            'received'          => 'tone-forest',
+            default             => 'tone-neutral',
         };
     }
 }

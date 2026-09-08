@@ -9,7 +9,10 @@ class QadSoapClient
     /**
      * POST a SOAP envelope to QAD and return a nested array of the response.
      *
-     * @return array{is_error: bool, message?: string, data?: array}
+     * `raw`/`http_code` are always included (even on success) so callers can
+     * surface the exact wire response for diagnosing an unverified endpoint.
+     *
+     * @return array{is_error: bool, message?: string, data?: array, raw?: string, http_code?: int}
      */
     public function call(string $xmlRequest): array
     {
@@ -55,6 +58,7 @@ class QadSoapClient
             return [
                 'is_error' => true,
                 'message' => "Empty response from QAD (HTTP {$httpCode}).",
+                'http_code' => $httpCode,
             ];
         }
 
@@ -64,10 +68,12 @@ class QadSoapClient
             return [
                 'is_error' => true,
                 'message' => 'Failed to parse QAD SOAP response: '.$e->getMessage(),
+                'raw' => $response,
+                'http_code' => $httpCode,
             ];
         }
 
-        return ['is_error' => false, 'data' => $array];
+        return ['is_error' => false, 'data' => $array, 'raw' => $response, 'http_code' => $httpCode];
     }
 
     /**

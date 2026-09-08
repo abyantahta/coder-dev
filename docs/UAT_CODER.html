@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>UAT CODER — Control Work Order</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; font-size: 10.5pt; color: #1e293b; line-height: 1.45; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  h1 { font-size: 22pt; margin: 0 0 4px; color: #0f172a; }
+  h2 { font-size: 15pt; margin: 0 0 10px; padding: 8px 12px; color: #fff; background: #1e3a8a; border-radius: 6px; }
+  h2.mtc { background: #1d4ed8; }
+  h2.qa  { background: #7c3aed; }
+  h2.ga  { background: #0f766e; }
+  h3 { font-size: 11.5pt; margin: 16px 0 6px; color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 3px; }
+  p { margin: 4px 0 8px; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; page-break-inside: auto; }
+  th, td { border: 1px solid #cbd5e1; padding: 5px 7px; vertical-align: top; font-size: 9.5pt; }
+  th { background: #f1f5f9; text-align: left; font-weight: 600; }
+  tr { page-break-inside: avoid; }
+  td.no { width: 64px; white-space: nowrap; font-weight: 600; color: #475569; }
+  td.status { width: 70px; text-align: center; }
+  td.note { width: 110px; }
+  .cover { text-align: center; }
+  .cover .badge { display: inline-block; background: #1e3a8a; color: #fff; padding: 6px 16px; border-radius: 999px; font-size: 10pt; letter-spacing: 1px; margin-bottom: 18px; }
+  .cover .app { font-size: 14pt; color: #334155; margin-top: 4px; }
+  .cover .company { font-size: 12pt; color: #64748b; margin-top: 30px; }
+  .cover .meta { width: auto; margin: 0 auto; text-align: left; }
+  .cover .meta td { border: none; padding: 3px 12px; font-size: 10.5pt; }
+  .page-break { page-break-before: always; }
+  .box { border: 1px solid #cbd5e1; border-left: 4px solid #1e3a8a; background: #f8fafc; padding: 8px 12px; margin: 8px 0 12px; border-radius: 4px; }
+  .box.warn { border-left-color: #d97706; background: #fffbeb; }
+  .box.info { border-left-color: #0ea5e9; background: #f0f9ff; }
+  .box b { color: #0f172a; }
+  .flow { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; background: #f8fafc; border: 1px dashed #94a3b8; padding: 8px 12px; border-radius: 4px; margin: 6px 0 12px; }
+  .small { font-size: 9pt; color: #64748b; }
+  ul { margin: 4px 0 8px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  .sign td { height: 60px; }
+  .sign th, .sign td { text-align: center; }
+  .footer-note { margin-top: 20px; font-size: 9pt; color: #64748b; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ COVER ═══════════════ -->
+<div class="cover">
+  <br><br><br><br><br><br>
+  <div class="badge">USER ACCEPTANCE TESTING</div>
+  <h1>Dokumen UAT</h1>
+  <div class="app">CODER — Control Work Order</div>
+  <div class="app small">Sistem Tiket Work Order Antar Departemen</div>
+  <div class="company">PT Sankei Dharma Indonesia</div>
+  <br><br>
+  <table class="meta">
+    <tr><td><b>Versi Dokumen</b></td><td>: 1.0</td></tr>
+    <tr><td><b>Tanggal</b></td><td>: 4 September 2026</td></tr>
+    <tr><td><b>Disusun oleh</b></td><td>: IT Department</td></tr>
+    <tr><td><b>Departemen Penguji</b></td><td>: Maintenance (MTC), Quality Assurance (QA), General Affair (GA)</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════ 1. PENDAHULUAN ═══════════════ -->
+<h2 class="page-break">1. Pendahuluan</h2>
+
+<h3>1.1 Tujuan</h3>
+<p>Dokumen ini digunakan untuk memastikan aplikasi <b>CODER (Control Work Order)</b> telah memenuhi kebutuhan proses Work Order (WO) di masing-masing departemen sebelum digunakan secara resmi. Pengujian dilakukan langsung oleh perwakilan pengguna dari tiap departemen.</p>
+
+<h3>1.2 Ruang Lingkup</h3>
+<ul>
+  <li><b>Fungsi Umum</b> — login, pembuatan WO, review requester, teruskan/batalkan WO, dan aturan deadline &amp; skor.</li>
+  <li><b>Maintenance (MTC)</b> — alur WO lengkap termasuk pengecekan sparepart dan pengadaan oleh Warehouse MTC.</li>
+  <li><b>Quality Assurance (QA)</b> — alur WO QA dan laporan performa QA.</li>
+  <li><b>General Affair (GA)</b> — alur WO GA dasar.</li>
+</ul>
+
+<h3>1.3 Cara Pengujian</h3>
+<ul>
+  <li>Penguji login menggunakan akun sesuai role yang diuji (lihat tabel akun uji).</li>
+  <li>Jalankan setiap skenario sesuai langkah, lalu bandingkan dengan <i>Hasil yang Diharapkan</i>.</li>
+  <li>Isi kolom <b>Status</b> dengan <b>PASS</b> atau <b>FAIL</b>. Jika FAIL, tuliskan penjelasan singkat di kolom Catatan.</li>
+  <li>Temuan yang bersifat saran/perbaikan tampilan (bukan kegagalan fungsi) dicatat di bagian Catatan Temuan.</li>
+</ul>
+
+<h3>1.4 Kriteria Penerimaan</h3>
+<p>Aplikasi dinyatakan <b>diterima</b> apabila seluruh skenario utama berstatus PASS. Skenario FAIL akan ditindaklanjuti IT dan diuji ulang sebelum go-live.</p>
+
+<h3>1.5 Akun Uji</h3>
+<p class="small">Password untuk seluruh akun uji disampaikan terpisah oleh IT.</p>
+<table>
+  <tr><th>Departemen</th><th>Role</th><th>Nama</th><th>Email</th></tr>
+  <tr><td>Maintenance</td><td>Section Head</td><td>Deni Andriansa</td><td>section.head@sankei.com</td></tr>
+  <tr><td>Maintenance</td><td>Unit Head</td><td>Wawan Gianto</td><td>unit.manufacturing@sankei.com</td></tr>
+  <tr><td>Maintenance</td><td>Group Head (Group A / B)</td><td>M Rochmat / Aryo Setioko</td><td>group.a@sankei.com / group.b@sankei.com</td></tr>
+  <tr><td>Maintenance</td><td>Teknisi</td><td>Budi</td><td>member.budi@sankei.com</td></tr>
+  <tr><td>Maintenance</td><td>Warehouse MTC</td><td>Nur Rahmad</td><td>warehouse.mtc@sankei.com</td></tr>
+  <tr><td>QA</td><td>QA Section Head</td><td>Maya Kusumawardhani</td><td>qa.section@sankei.com</td></tr>
+  <tr><td>QA</td><td>QA Group Head</td><td>Retno Wulandari</td><td>qa.gh@sankei.com</td></tr>
+  <tr><td>QA</td><td>QA Member</td><td>Dani Kurniawan</td><td>qa.member1@sankei.com</td></tr>
+  <tr><td>GA</td><td>GA Section Head / GA Staff</td><td colspan="2"><i>Dibuat oleh Super Admin sebelum pengujian (lihat Bagian 5)</i></td></tr>
+  <tr><td>Requester</td><td>User (Produksi / QC / IT)</td><td>Sinta Dewi / Lina Marlina / Wahyu Adi</td><td>user.produksi@ / user.qc@ / user.it@sankei.com</td></tr>
+  <tr><td>IT</td><td>Super Admin</td><td>IT Admin</td><td>it@sankei-dharma.com</td></tr>
+</table>
+
+<!-- ═══════════════ 2. FUNGSI UMUM ═══════════════ -->
+<h2 class="page-break">2. Fungsi Umum (Semua Departemen)</h2>
+<p>Skenario berikut berlaku untuk semua departemen dan diuji satu kali oleh requester atau IT.</p>
+
+<div class="box info">
+  <b>Aturan bisnis yang berlaku:</b>
+  <ul>
+    <li><b>Deadline</b> dihitung dari <i>leadtime</i> kategori WO (hari kerja, Sabtu–Minggu tidak dihitung), dimulai saat WO di-assign ke pelaksana.</li>
+    <li><b>Rework</b> memberi tambahan 2 hari kerja dan mengembalikan WO ke pelaksana.</li>
+    <li><b>Skor WO</b> = 100 − (hari terlambat × 10) − (jumlah rework × 15), minimal 10.</li>
+    <li><b>Lampiran</b> hanya PDF atau PNG, maksimal 5 MB.</li>
+  </ul>
+</div>
+
+<table>
+  <tr><th>No</th><th>Skenario</th><th>Langkah Singkat</th><th>Hasil yang Diharapkan</th><th>Status</th><th>Catatan</th></tr>
+  <tr><td class="no">UM-01</td><td>Login &amp; Logout</td><td>Masuk dengan email/password, lalu logout.</td><td>Masuk ke Dashboard sesuai role; logout kembali ke halaman login.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-02</td><td>Dashboard sesuai role</td><td>Login sebagai requester, lalu sebagai staf departemen.</td><td>Dashboard menampilkan ringkasan WO yang relevan dengan role pengguna.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-03</td><td>Buat Work Order</td><td>Menu Buat Work Order: isi judul, deskripsi, prioritas, departemen tujuan, kategori, lampiran (opsional).</td><td>WO tersimpan dengan nomor otomatis, status <i>Pending</i>, leadtime terisi otomatis sesuai kategori.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-04</td><td>Validasi lampiran</td><td>Coba unggah file selain PDF/PNG atau &gt; 5 MB.</td><td>Sistem menolak dan menampilkan pesan kesalahan.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-05</td><td>Daftar &amp; detail WO</td><td>Buka menu Work Orders, gunakan filter status/prioritas/pencarian, buka salah satu WO.</td><td>Daftar sesuai filter; halaman detail menampilkan info WO, lampiran, dan riwayat (history).</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-06</td><td>Teruskan WO ke departemen lain</td><td>Sebagai penerima WO, pilih <i>Teruskan</i>, pilih departemen tujuan, isi alasan.</td><td>WO berpindah ke departemen tujuan dan mulai dari langkah pertama alur departemen tersebut; riwayat tercatat.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-07</td><td>Batalkan WO</td><td>Sebagai Section Head / penerima WO, pilih <i>Batalkan</i>, isi alasan.</td><td>Status menjadi <i>Cancelled</i> dengan alasan tersimpan; tidak ada aksi lanjutan.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-08</td><td>Review requester — Setujui</td><td>Setelah pekerjaan ditandai selesai, requester klik <i>Setujui Pekerjaan</i>.</td><td>Status <i>Finished</i>; skor WO muncul sesuai rumus.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-09</td><td>Review requester — Rework</td><td>Requester klik <i>Minta Rework</i> dan isi catatan.</td><td>Status <i>Rework</i>, jumlah rework bertambah, deadline rework +2 hari kerja, WO kembali ke pelaksana.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">UM-10</td><td>Countdown &amp; Overdue</td><td>Buka WO yang sudah memiliki deadline.</td><td>Countdown berjalan; WO yang melewati deadline diberi tanda <i>OVERDUE</i>.</td><td class="status"></td><td class="note"></td></tr>
+</table>
+
+<!-- ═══════════════ 3. MAINTENANCE ═══════════════ -->
+<h2 class="page-break mtc">3. Departemen Maintenance (MTC)</h2>
+
+<h3>3.1 Alur Kerja</h3>
+<div class="flow">
+Requester buat WO → [Unit Head] Terima / Tolak / Teruskan → [Unit Head] Pengecekan Sparepart<br>
+&nbsp;&nbsp;├─ Sparepart ada → <b>Assign to GH</b> (pilih Group Head) → [Group Head] Assign ke Teknisi → [Teknisi] Tandai Selesai → [Requester] Review<br>
+&nbsp;&nbsp;└─ Sparepart tidak ada → catatan ke <b>Warehouse MTC</b> → pilih item &amp; Buat PR → Terima Barang → lanjut Assign ke Group Head
+</div>
+
+<h3>3.2 Role &amp; Kategori</h3>
+<table>
+  <tr><th>Role</th><th>Fungsi Utama</th></tr>
+  <tr><td>Section Head</td><td>Melihat seluruh WO, manajemen user, unit &amp; group, konfigurasi departemen, laporan performa.</td></tr>
+  <tr><td>Unit Head</td><td>Menerima/menolak/meneruskan WO, pengecekan sparepart, assign ke Group Head.</td></tr>
+  <tr><td>Group Head</td><td>Assign WO ke Teknisi dalam group-nya.</td></tr>
+  <tr><td>Teknisi</td><td>Mengerjakan WO dan menandai selesai (dengan foto).</td></tr>
+  <tr><td>Warehouse MTC</td><td>Memproses kebutuhan sparepart: pilih item, buat PR, terima barang.</td></tr>
+</table>
+<p class="small">Kategori WO &amp; leadtime: Safety (1 hari), Quality / Customer (1 hari), Productivity (2 hari), General / Additional (3 hari).</p>
+
+<h3>3.3 Skenario Pengujian</h3>
+<table>
+  <tr><th>No</th><th>Skenario</th><th>Langkah Singkat</th><th>Hasil yang Diharapkan</th><th>Status</th><th>Catatan</th></tr>
+  <tr><td colspan="6" style="background:#eff6ff;font-weight:600">Unit Head</td></tr>
+  <tr><td class="no">MTC-01</td><td>Terima WO</td><td>Buka WO Pending tujuan Maintenance, klik <i>Terima WO</i>.</td><td>Status <i>Accepted</i>, langkah berikutnya <i>Pengecekan Sparepart</i> muncul.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-02</td><td>Tolak WO</td><td>Klik <i>Tolak WO</i>, isi alasan.</td><td>Status <i>Rejected</i>, alasan tampil di detail WO.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-03</td><td>Pengecekan sparepart — sparepart tersedia</td><td>Klik <i>Assign to GH</i>, pilih nama Group Head dari daftar, klik <i>Konfirmasi Assign</i>.</td><td>Status <i>Assigned Group</i>; riwayat mencatat sparepart tersedia dan group tujuan; tanpa harus lewat langkah terpisah.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-04</td><td>Pengecekan sparepart — validasi</td><td>Klik <i>Konfirmasi Assign</i> tanpa memilih Group Head.</td><td>Muncul peringatan untuk memilih Group Head terlebih dahulu; WO tidak berubah.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-05</td><td>Pengecekan sparepart — sparepart tidak ada</td><td>Klik <i>Sparepart Tidak Ada</i>, isi catatan kebutuhan, klik <i>Kirim ke Warehouse-MTC</i>.</td><td>Status <i>Pending Parts</i>; WO muncul di dashboard Warehouse dengan catatan Unit Head; Unit Head tidak bisa lanjut sebelum barang diterima.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td colspan="6" style="background:#eff6ff;font-weight:600">Warehouse MTC</td></tr>
+  <tr><td class="no">MTC-06</td><td>Dashboard Warehouse</td><td>Login Warehouse, buka menu Warehouse MTC.</td><td>Statistik (menunggu PR, PR aktif, overdue, diterima) dan daftar order pending tampil.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-07</td><td>Pilih sparepart dari master QAD</td><td>Klik <i>Pilih Sparepart &amp; Buat PR</i>, cari item, isi qty &amp; UOM, klik <i>Tambah</i>.</td><td>Item masuk ke daftar <i>Item Terpilih</i>; item dapat dihapus kembali.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-08</td><td>Tambah item manual</td><td>Isi item di bagian <i>Tambah Manual</i> untuk part yang belum ada di master QAD.</td><td>Item tersimpan dengan tanda <i>(manual)</i>.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-09</td><td>Buat PR</td><td>Isi No. PR QAD dan catatan, klik <i>Buat PR</i>. Coba juga tanpa item.</td><td>Tanpa item: ditolak. Dengan item: status <i>Parts Ordered</i>, estimasi tiba +30 hari tampil di detail WO.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-10</td><td>Terima barang</td><td>Pada PR aktif, isi catatan receiving, klik <i>Terima Barang</i>.</td><td>Status <i>Parts Received</i>; Unit Head dapat melanjutkan <i>Assign ke Group Head</i>.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td colspan="6" style="background:#eff6ff;font-weight:600">Group Head &amp; Teknisi</td></tr>
+  <tr><td class="no">MTC-11</td><td>Assign ke Teknisi</td><td>Login Group Head, buka WO <i>Assigned Group</i>, pilih teknisi, klik <i>Assign ke Teknisi</i>.</td><td>Status <i>Assigned Member</i>; deadline terisi sesuai leadtime kategori (hari kerja).</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-12</td><td>Group Head lihat WO group lain</td><td>Buka daftar WO, lihat bagian WO group lain.</td><td>WO group lain terlihat namun tidak dapat diubah.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-13</td><td>Tandai selesai</td><td>Login Teknisi, buka WO yang di-assign, isi catatan, unggah foto, klik <i>Tandai Selesai</i>.</td><td>Status <i>Completed</i>; foto tampil di detail WO; menunggu review requester.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-14</td><td>Rework kembali ke Teknisi</td><td>Requester minta rework (UM-09), lalu login Teknisi.</td><td>WO kembali muncul untuk teknisi yang sama dengan deadline rework.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td colspan="6" style="background:#eff6ff;font-weight:600">Section Head &amp; Administrasi</td></tr>
+  <tr><td class="no">MTC-15</td><td>Performance (SR)</td><td>Buka menu Performance.</td><td>Service Rate per teknisi, group, dan unit tampil sesuai skor WO yang selesai.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-16</td><td>Manajemen User</td><td>Menu Manajemen User: tambah, ubah, hapus user Maintenance.</td><td>User tersimpan dengan role, unit, dan group yang benar; dapat login.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-17</td><td>Unit &amp; Group</td><td>Menu Unit &amp; Group: tambah unit, tambah group dalam unit.</td><td>Unit/group baru muncul saat assign WO.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">MTC-18</td><td>Konfigurasi Departemen</td><td>Menu Konfigurasi Dept: ubah leadtime kategori, tambah/ubah urutan langkah approval.</td><td>Perubahan berlaku pada WO baru.</td><td class="status"></td><td class="note"></td></tr>
+</table>
+<div class="box warn"><b>Prasyarat MTC-07:</b> IT telah menjalankan sinkronisasi master item dari QAD sehingga data sparepart tersedia di pencarian Warehouse. Jika belum, gunakan <i>Tambah Manual</i> (MTC-08).</div>
+
+<!-- ═══════════════ 4. QA ═══════════════ -->
+<h2 class="page-break qa">4. Departemen Quality Assurance (QA)</h2>
+
+<h3>4.1 Alur Kerja</h3>
+<div class="flow">
+Requester buat WO tujuan QA → [QA Group Head] Terima / Tolak / Teruskan → [QA Group Head] Assign ke QA Member<br>
+→ [QA Member] Tandai Selesai → [Requester] Review (otomatis disetujui jika tidak direspons dalam 2 hari)
+</div>
+
+<h3>4.2 Role &amp; Kategori</h3>
+<table>
+  <tr><th>Role</th><th>Fungsi Utama</th></tr>
+  <tr><td>QA Section Head</td><td>Melihat seluruh WO QA, manajemen user QA, konfigurasi departemen, laporan performa QA.</td></tr>
+  <tr><td>QA Group Head</td><td>Menerima/menolak/meneruskan WO, assign ke QA Member, laporan performa QA.</td></tr>
+  <tr><td>QA Member</td><td>Mengerjakan WO dan menandai selesai.</td></tr>
+</table>
+<p class="small">Kategori WO &amp; leadtime: Inspeksi (1 hari), Audit (2 hari), Dokumentasi (3 hari).</p>
+
+<h3>4.3 Skenario Pengujian</h3>
+<table>
+  <tr><th>No</th><th>Skenario</th><th>Langkah Singkat</th><th>Hasil yang Diharapkan</th><th>Status</th><th>Catatan</th></tr>
+  <tr><td colspan="6" style="background:#f5f3ff;font-weight:600">QA Group Head</td></tr>
+  <tr><td class="no">QA-01</td><td>Terima WO</td><td>Buka WO Pending tujuan QA, klik <i>Terima WO</i>.</td><td>Status <i>Accepted</i>; langkah <i>Assign ke Member QA</i> muncul.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-02</td><td>Tolak WO</td><td>Klik <i>Tolak WO</i>, isi alasan.</td><td>Status <i>Rejected</i>, alasan tampil di detail WO.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-03</td><td>Teruskan ke Maintenance / GA</td><td>Klik <i>Teruskan</i>, pilih departemen, isi alasan.</td><td>WO berpindah dan mulai dari langkah pertama departemen tujuan.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-04</td><td>Assign ke QA Member</td><td>Pilih QA Member, klik <i>Assign ke QA Member</i>.</td><td>Status <i>Assigned Member</i>; deadline sesuai leadtime kategori (hari kerja).</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td colspan="6" style="background:#f5f3ff;font-weight:600">QA Member &amp; Requester</td></tr>
+  <tr><td class="no">QA-05</td><td>Tandai selesai</td><td>Login QA Member, buka WO yang di-assign, isi catatan, klik <i>Tandai Selesai</i>.</td><td>Status <i>Completed</i>; menunggu review requester.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-06</td><td>Review requester</td><td>Requester <i>Setujui</i> atau <i>Minta Rework</i>.</td><td>Setujui: <i>Finished</i> + skor. Rework: kembali ke QA Member dengan deadline +2 hari kerja.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-07</td><td>Auto-confirm review</td><td>Biarkan WO <i>Completed</i> tanpa review selama 2 hari (IT menjalankan proses otomatis).</td><td>WO otomatis menjadi <i>Finished</i> dan riwayat mencatat auto-confirm.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td colspan="6" style="background:#f5f3ff;font-weight:600">QA Section Head &amp; Administrasi</td></tr>
+  <tr><td class="no">QA-08</td><td>Performance QA</td><td>Buka menu Performance QA.</td><td>Tren skor 6 bulan dan jumlah WO per status tampil.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-09</td><td>Manajemen User QA</td><td>Menu Manajemen User: tambah, ubah, hapus user QA.</td><td>User tersimpan dengan role yang benar dan dapat login.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">QA-10</td><td>Konfigurasi Departemen QA</td><td>Menu Konfigurasi Dept: ubah leadtime kategori / langkah approval.</td><td>Perubahan berlaku pada WO baru.</td><td class="status"></td><td class="note"></td></tr>
+</table>
+
+<!-- ═══════════════ 5. GA ═══════════════ -->
+<h2 class="page-break ga">5. Departemen General Affair (GA)</h2>
+
+<h3>5.1 Alur Kerja</h3>
+<div class="flow">
+Requester buat WO tujuan GA → [GA Section Head] Terima / Tolak / Teruskan → [GA Section Head] Assign ke Staff GA<br>
+→ [Staff GA] Tandai Selesai → [Requester] Review
+</div>
+
+<h3>5.2 Role &amp; Kategori</h3>
+<table>
+  <tr><th>Role</th><th>Fungsi Utama</th></tr>
+  <tr><td>GA Section Head</td><td>Menerima/menolak/meneruskan WO, assign ke Staff GA, konfigurasi departemen.</td></tr>
+  <tr><td>Staff GA</td><td>Mengerjakan WO dan menandai selesai.</td></tr>
+</table>
+<p class="small">Kategori WO &amp; leadtime: Umum (3 hari), Fasilitas (2 hari).</p>
+
+<div class="box warn">
+  <b>Prasyarat:</b> Akun GA belum tersedia di data awal. Sebelum pengujian, <b>Super Admin (IT)</b> membuat user <i>GA Section Head</i> dan <i>Staff GA</i> melalui menu <i>Super Admin → Semua Users</i> dengan departemen GA dan role yang sesuai.
+</div>
+<div class="box info">
+  <b>Catatan:</b> Alur GA berjalan melalui mesin approval yang sama dengan departemen lain, namun saat ini <b>belum memiliki dashboard/antrian WO khusus GA</b>. Staff GA mengakses WO yang di-assign melalui Dashboard atau nomor WO. Keterbatasan ini dicatat sebagai temuan awal untuk ditindaklanjuti IT.
+</div>
+
+<h3>5.3 Skenario Pengujian</h3>
+<table>
+  <tr><th>No</th><th>Skenario</th><th>Langkah Singkat</th><th>Hasil yang Diharapkan</th><th>Status</th><th>Catatan</th></tr>
+  <tr><td class="no">GA-00</td><td>Persiapan akun GA</td><td>Super Admin membuat user GA Section Head dan Staff GA.</td><td>Kedua user dapat login dan melihat Dashboard.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-01</td><td>Terima WO</td><td>Login GA Section Head, buka WO Pending tujuan GA, klik <i>Terima WO</i>.</td><td>Status <i>Accepted</i>; langkah <i>Assign ke Staff</i> muncul.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-02</td><td>Tolak WO</td><td>Klik <i>Tolak WO</i>, isi alasan.</td><td>Status <i>Rejected</i>, alasan tampil di detail WO.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-03</td><td>Teruskan ke Maintenance / QA</td><td>Klik <i>Teruskan</i>, pilih departemen, isi alasan.</td><td>WO berpindah dan mulai dari langkah pertama departemen tujuan.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-04</td><td>Assign ke Staff GA</td><td>Pilih Staff GA, klik <i>Assign ke Staff GA</i>.</td><td>Status <i>Assigned Member</i>; deadline sesuai leadtime kategori (hari kerja).</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-05</td><td>Tandai selesai</td><td>Login Staff GA, buka WO yang di-assign, isi catatan, klik <i>Tandai Selesai</i>.</td><td>Status <i>Completed</i>; menunggu review requester.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-06</td><td>Review requester</td><td>Requester <i>Setujui</i> atau <i>Minta Rework</i>.</td><td>Setujui: <i>Finished</i> + skor. Rework: kembali ke Staff GA dengan deadline +2 hari kerja.</td><td class="status"></td><td class="note"></td></tr>
+  <tr><td class="no">GA-07</td><td>Konfigurasi Departemen GA</td><td>Login GA Section Head, menu Konfigurasi Dept: ubah leadtime kategori / langkah approval.</td><td>Perubahan berlaku pada WO baru.</td><td class="status"></td><td class="note"></td></tr>
+</table>
+
+<!-- ═══════════════ 6. SIGN-OFF ═══════════════ -->
+<h2 class="page-break">6. Catatan Temuan &amp; Lembar Persetujuan</h2>
+
+<h3>6.1 Catatan Temuan</h3>
+<table>
+  <tr><th style="width:60px">No</th><th style="width:90px">No. Skenario</th><th>Deskripsi Temuan</th><th style="width:110px">Prioritas</th></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+  <tr><td style="height:28px"></td><td></td><td></td><td></td></tr>
+</table>
+
+<h3>6.2 Lembar Persetujuan</h3>
+<p>Dengan menandatangani lembar ini, penguji menyatakan telah melakukan pengujian sesuai dokumen dan hasilnya adalah sebagaimana tercantum.</p>
+<table class="sign">
+  <tr><th style="width:120px">Departemen</th><th>Nama Penguji</th><th>Jabatan</th><th style="width:130px">Hasil<br><span class="small">Diterima / Diterima dengan catatan / Ditolak</span></th><th style="width:110px">Tanda Tangan</th><th style="width:90px">Tanggal</th></tr>
+  <tr><td>Maintenance</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>QA</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>GA</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>IT (Penyusun)</td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+
+<p class="footer-note">Dokumen UAT CODER v1.0 — PT Sankei Dharma Indonesia — IT Department</p>
+
+</body>
+</html>

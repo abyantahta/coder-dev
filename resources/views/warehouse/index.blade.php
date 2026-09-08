@@ -3,7 +3,7 @@
 @section('page-title', 'Warehouse MTC — Dashboard')
 
 @push('head')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ asset('js/chart.umd.min.js') }}"></script>
 @endpush
 
 @section('content')
@@ -130,7 +130,7 @@
                             style="width: {{ $progress }}%"></div>
                     </div>
                     <span class="text-xs {{ $overdue ? 'text-red-600 font-semibold' : 'text-slate-500' }}">
-                        {{ $overdue ? abs($daysLeft).' hari overdue' : $daysLeft.' hari lagi' }}
+                        {{ $overdue ? round(abs($daysLeft)).' hari overdue' : round($daysLeft).' hari lagi' }}
                     </span>
                 </div>
                 @endif
@@ -203,9 +203,9 @@ new Chart(document.getElementById('procurementChart'), {
     data: {
         labels: months,
         datasets: [
-            { label: 'Jumlah PR', data: totals, backgroundColor: '#6366f1', borderRadius: 4, yAxisID: 'y' },
-            { label: 'Avg Hari', data: avgDays, type: 'line', borderColor: '#f97316', tension: 0.3,
-              pointBackgroundColor: '#f97316', yAxisID: 'y2' },
+            { label: 'Jumlah PR', data: totals, backgroundColor: '#5B6472', borderRadius: 4, yAxisID: 'y' },
+            { label: 'Avg Hari', data: avgDays, type: 'line', borderColor: '#F2790B', backgroundColor: '#F2790B', tension: 0.3,
+              pointBackgroundColor: '#F2790B', yAxisID: 'y2' },
         ]
     },
     options: {
@@ -223,7 +223,7 @@ new Chart(document.getElementById('miniTrend'), {
     type: 'line',
     data: {
         labels: months,
-        datasets: [{ data: avgDays, borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.3 }]
+        datasets: [{ data: avgDays, borderColor: '#F2790B', borderWidth: 2, pointRadius: 0, tension: 0.3 }]
     },
     options: {
         responsive: true, maintainAspectRatio: false,

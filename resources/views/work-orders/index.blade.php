@@ -86,7 +86,7 @@
             </thead>
             <tbody class="divide-y divide-slate-100">
                 @forelse ($wos as $wo)
-                <tr class="hover:bg-slate-50 transition cursor-pointer {{ $wo->isOverdue() ? 'bg-red-50' : '' }}"
+                <tr class="hover:bg-slate-50 transition cursor-pointer {{ $wo->isOverdue() ? 'bg-red-50/50 shadow-[inset_3px_0_0_0_var(--color-red-500)]' : '' }}"
                     onclick="window.location='{{ route('work-orders.show', $wo) }}'"
                     title="{{ $wo->title }}">
                     <td class="px-4 py-3 font-mono text-xs text-slate-600 whitespace-nowrap">{{ $wo->wo_number }}</td>

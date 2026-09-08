@@ -178,36 +178,47 @@ class WorkOrder extends Model
         };
     }
 
+    /**
+     * Status tone. One small vocabulary instead of a per-status rainbow:
+     * gold = menunggu · steel/ink = sedang berjalan · flame = butuh aksi kamu
+     * forest = beres · brick = bermasalah · neutral = ditutup
+     */
     public static function statusColor(string $status): string
     {
         return match ($status) {
-            'pending'               => 'bg-yellow-100 text-yellow-800',
-            'accepted'              => 'bg-blue-100 text-blue-800',
-            'rejected'              => 'bg-red-100 text-red-800',
-            'forwarded_ga'          => 'bg-teal-100 text-teal-800',
-            'forwarded_qa'          => 'bg-cyan-100 text-cyan-800',
-            'forwarded_maintenance' => 'bg-orange-100 text-orange-800',
-            'pending_parts'         => 'bg-amber-100 text-amber-800',
-            'parts_ordered'         => 'bg-violet-100 text-violet-800',
-            'parts_received'        => 'bg-lime-100 text-lime-800',
-            'assigned_group'        => 'bg-indigo-100 text-indigo-800',
-            'assigned_member'       => 'bg-purple-100 text-purple-800',
-            'completed'             => 'bg-orange-100 text-orange-800',
-            'rework'                => 'bg-pink-100 text-pink-800',
-            'finished'              => 'bg-green-100 text-green-800',
-            'cancelled'             => 'bg-gray-100 text-gray-600',
-            default                 => 'bg-gray-100 text-gray-600',
+            'pending'               => 'tone-gold',
+            'accepted'              => 'tone-steel',
+            'rejected'              => 'tone-brick',
+            'forwarded_ga',
+            'forwarded_qa',
+            'forwarded_maintenance' => 'tone-ink',
+            'pending_parts'         => 'tone-gold',
+            'parts_ordered'         => 'tone-steel',
+            'parts_received'        => 'tone-forest',
+            'assigned_group'        => 'tone-steel',
+            'assigned_member'       => 'tone-ink',
+            'completed'             => 'tone-flame',
+            'rework'                => 'tone-brick',
+            'finished'              => 'tone-forest',
+            'cancelled'             => 'tone-neutral',
+            default                 => 'tone-neutral',
         };
+    }
+
+    /** Matching dot colour, for dense lists where a chip is too heavy. */
+    public static function statusDot(string $status): string
+    {
+        return 'tone-dot ' . str_replace('tone-', 'tone-dot-', self::statusColor($status));
     }
 
     public static function priorityColor(string $priority): string
     {
         return match ($priority) {
-            'low'    => 'bg-gray-100 text-gray-600',
-            'medium' => 'bg-blue-100 text-blue-700',
-            'high'   => 'bg-orange-100 text-orange-700',
-            'urgent' => 'bg-red-100 text-red-700',
-            default  => 'bg-gray-100 text-gray-600',
+            'low'    => 'tone-neutral',
+            'medium' => 'tone-steel',
+            'high'   => 'tone-flame',
+            'urgent' => 'tone-brick',
+            default  => 'tone-neutral',
         };
     }
 }

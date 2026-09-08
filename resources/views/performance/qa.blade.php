@@ -125,7 +125,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ asset('js/chart.umd.min.js') }}"></script>
 <script>
 const trendData = @json($monthlyTrend);
 const statusData = @json($woByStatus);
@@ -139,8 +139,8 @@ new Chart(document.getElementById('srTrendChart'), {
             {
                 label: 'Avg SR (%)',
                 data: trendData.map(d => d.avg_score),
-                backgroundColor: 'rgba(99,102,241,0.2)',
-                borderColor: 'rgb(99,102,241)',
+                backgroundColor: 'rgba(242,121,11,0.18)',
+                borderColor: 'rgb(242,121,11)',
                 borderWidth: 2,
                 borderRadius: 4,
                 yAxisID: 'y',
@@ -149,8 +149,8 @@ new Chart(document.getElementById('srTrendChart'), {
                 label: 'Jumlah WO',
                 data: trendData.map(d => d.total),
                 type: 'line',
-                borderColor: 'rgb(16,185,129)',
-                backgroundColor: 'rgba(16,185,129,0.1)',
+                borderColor: 'rgb(46,115,80)',
+                backgroundColor: 'rgba(46,115,80,0.12)',
                 borderWidth: 2,
                 tension: 0.3,
                 pointRadius: 4,
@@ -176,10 +176,10 @@ const statusLabels = {
     forwarded_maintenance: 'Diteruskan ke MTC', forwarded_ga: 'Diteruskan ke GA',
 };
 const statusColors = {
-    pending: '#fef08a', accepted: '#bfdbfe', assigned_member: '#e9d5ff',
-    completed: '#fed7aa', rework: '#fbcfe8', finished: '#bbf7d0',
-    rejected: '#fecaca', cancelled: '#e2e8f0',
-    forwarded_maintenance: '#fed7aa', forwarded_ga: '#99f6e4',
+    pending: '#EAD49B', accepted: '#C3CED8', assigned_member: '#B9BEC7',
+    completed: '#F9CFA4', rework: '#EDC0B5', finished: '#B6D4C1',
+    rejected: '#F0BCB6', cancelled: '#E0DACB',
+    forwarded_maintenance: '#F6B172', forwarded_ga: '#CDD1D8',
 };
 const entries = Object.entries(statusData).filter(([, v]) => v > 0);
 new Chart(document.getElementById('woStatusChart'), {
@@ -188,7 +188,7 @@ new Chart(document.getElementById('woStatusChart'), {
         labels: entries.map(([k]) => statusLabels[k] || k),
         datasets: [{
             data: entries.map(([, v]) => v),
-            backgroundColor: entries.map(([k]) => statusColors[k] || '#e2e8f0'),
+            backgroundColor: entries.map(([k]) => statusColors[k] || '#E0DACB'),
             borderWidth: 1,
         }]
     },

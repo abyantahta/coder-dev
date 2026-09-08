@@ -3,7 +3,7 @@
 @section('page-title', 'Performance — Service Rate')
 
 @push('head')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ asset('js/chart.umd.min.js') }}"></script>
 @endpush
 
 @section('content')
@@ -73,16 +73,22 @@
                 @foreach ($woByStatus as $status => $count)
                 <div class="flex items-center gap-2 text-sm">
                     <div class="w-3 h-3 rounded-full" style="background: {{ [
-                        'pending' => '#eab308',
-                        'accepted' => '#3b82f6',
-                        'rejected' => '#ef4444',
-                        'assigned_group' => '#6366f1',
-                        'assigned_member' => '#8b5cf6',
-                        'completed' => '#f97316',
-                        'rework' => '#ec4899',
-                        'finished' => '#22c55e',
-                        'cancelled' => '#6b7280',
-                    ][$status] ?? '#6b7280' }}"></div>
+                        'pending' => '#B08420',
+                        'accepted' => '#5B6472',
+                        'rejected' => '#B3261E',
+                        'assigned_group' => '#7A8494',
+                        'assigned_member' => '#12161C',
+                        'completed' => '#F2790B',
+                        'rework' => '#C0392B',
+                        'finished' => '#2E7350',
+                        'pending_parts' => '#DBBA6A',
+                        'parts_ordered' => '#9AA2AE',
+                        'parts_received' => '#5C9E77',
+                        'forwarded_ga' => '#4A5A6B',
+                        'forwarded_qa' => '#7A8494',
+                        'forwarded_maintenance' => '#F6B172',
+                        'cancelled' => '#C7C1B2',
+                    ][$status] ?? '#9AA2AE' }}"></div>
                     <span class="text-slate-600">{{ \App\Models\WorkOrder::statusLabel($status) }}</span>
                     <span class="font-semibold text-slate-800">{{ $count }}</span>
                 </div>
@@ -233,7 +239,7 @@ new Chart(document.getElementById('memberSrChart'), {
         labels: {!! $members->pluck('name')->toJson() !!},
         datasets: [{
             data: {!! $members->map(fn($m) => $m->service_rate)->toJson() !!},
-            backgroundColor: {!! $members->map(fn($m) => $m->service_rate >= 80 ? '#22c55e' : ($m->service_rate >= 60 ? '#eab308' : '#ef4444'))->toJson() !!},
+            backgroundColor: {!! $members->map(fn($m) => $m->service_rate >= 80 ? '#2E7350' : ($m->service_rate >= 60 ? '#B08420' : '#B3261E'))->toJson() !!},
             borderRadius: 6,
         }]
     },
@@ -258,11 +264,11 @@ new Chart(document.getElementById('monthlyTrendChart'), {
         datasets: [{
             label: 'Avg SR',
             data: {!! $monthlyTrend->pluck('avg_score')->toJson() !!},
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59,130,246,0.1)',
+            borderColor: '#F2790B',
+            backgroundColor: 'rgba(242,121,11,0.12)',
             tension: 0.3,
             fill: true,
-            pointBackgroundColor: '#3b82f6',
+            pointBackgroundColor: '#F2790B',
         }]
     },
     options: {
@@ -288,15 +294,21 @@ new Chart(document.getElementById('woStatusChart'), {
         datasets: [{
             data: {!! $woByStatus->values()->toJson() !!},
             backgroundColor: {!! $woByStatus->keys()->map(fn($s) => match($s) {
-                'pending' => '#eab308',
-                'accepted' => '#3b82f6',
-                'rejected' => '#ef4444',
-                'assigned_group' => '#6366f1',
-                'assigned_member' => '#8b5cf6',
-                'completed' => '#f97316',
-                'rework' => '#ec4899',
-                'finished' => '#22c55e',
-                default => '#6b7280',
+                'pending' => '#B08420',
+                'accepted' => '#5B6472',
+                'rejected' => '#B3261E',
+                'assigned_group' => '#7A8494',
+                'assigned_member' => '#12161C',
+                'completed' => '#F2790B',
+                'rework' => '#C0392B',
+                'finished' => '#2E7350',
+                'pending_parts' => '#DBBA6A',
+                'parts_ordered' => '#9AA2AE',
+                'parts_received' => '#5C9E77',
+                'forwarded_ga' => '#4A5A6B',
+                'forwarded_qa' => '#7A8494',
+                'forwarded_maintenance' => '#F6B172',
+                default => '#9AA2AE',
             })->toJson() !!},
         }]
     },
@@ -321,7 +333,7 @@ new Chart(document.getElementById('procurementTrendChart'), {
             {
                 label: 'Jumlah PR',
                 data: {!! $procurementTrend->pluck('total')->toJson() !!},
-                backgroundColor: '#6366f1',
+                backgroundColor: '#5B6472',
                 borderRadius: 4,
                 yAxisID: 'y',
             },
@@ -329,9 +341,9 @@ new Chart(document.getElementById('procurementTrendChart'), {
                 label: 'Avg Hari',
                 data: {!! $procurementTrend->map(fn($r) => round($r->avg_days ?? 0, 1))->toJson() !!},
                 type: 'line',
-                borderColor: '#f97316',
+                borderColor: '#F2790B',
                 tension: 0.3,
-                pointBackgroundColor: '#f97316',
+                pointBackgroundColor: '#F2790B',
                 yAxisID: 'y2',
             },
         ]
@@ -356,7 +368,7 @@ new Chart(document.getElementById('groupSrChart'), {
         labels: {!! $allGroups->pluck('name')->toJson() !!},
         datasets: [{
             data: {!! $allGroups->map(fn($g) => $g->service_rate)->toJson() !!},
-            backgroundColor: {!! $allGroups->map(fn($g) => $g->service_rate >= 80 ? '#22c55e' : ($g->service_rate >= 60 ? '#eab308' : '#ef4444'))->toJson() !!},
+            backgroundColor: {!! $allGroups->map(fn($g) => $g->service_rate >= 80 ? '#2E7350' : ($g->service_rate >= 60 ? '#B08420' : '#B3261E'))->toJson() !!},
             borderRadius: 6,
         }]
     },
