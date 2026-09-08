@@ -164,4 +164,34 @@
 
 @endif
 
+{{-- Confirm goods received --}}
+@if ($partOrder->status === 'pr_created')
+<div class="bg-white rounded-xl shadow-sm p-5">
+    <h3 class="font-semibold text-slate-800 mb-1">Konfirmasi Barang Diterima</h3>
+    <p class="text-xs text-slate-500 mb-3">
+        @if ($partOrder->expected_arrival)
+        Estimasi tiba {{ $partOrder->expected_arrival->format('d M Y') }}.
+        @endif
+        Klik setelah barang benar-benar diterima secara fisik.
+    </p>
+    <form method="POST" action="{{ route('warehouse.receive', $partOrder) }}" class="flex flex-wrap gap-2">
+        @csrf
+        <input type="text" name="note" placeholder="Catatan receiving (opsional)"
+            class="flex-1 min-w-[200px] border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+        <button type="submit"
+            class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition">
+            ✓ Barang Sudah Diterima
+        </button>
+    </form>
+</div>
+@elseif ($partOrder->status === 'received')
+<div class="bg-green-50 border border-green-200 rounded-xl p-5">
+    <h3 class="font-semibold text-green-800 mb-1">Barang Sudah Diterima</h3>
+    <p class="text-sm text-green-700">
+        Diterima {{ $partOrder->received_at?->format('d M Y, H:i') }}.
+        WO ini otomatis lanjut ke tahap berikutnya.
+    </p>
+</div>
+@endif
+
 @endsection
