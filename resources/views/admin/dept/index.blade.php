@@ -36,6 +36,10 @@
             class="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
             Alur Approval
         </a>
+        <a href="{{ route('dept-admin.qad-config.index') }}"
+            class="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+            Konfigurasi QAD
+        </a>
     </div>
 </div>
 

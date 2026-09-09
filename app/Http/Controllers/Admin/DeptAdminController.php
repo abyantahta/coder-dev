@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ApprovalStep;
 use App\Models\Department;
+use App\Models\DepartmentQadConfig;
 use App\Models\DepartmentRole;
 use App\Models\WoCategory;
 use Illuminate\Http\Request;
@@ -254,6 +255,33 @@ class DeptAdminController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    // ── QAD Config ────────────────────────────────────────────────────────────
+
+    public function qadConfig()
+    {
+        $dept = $this->dept();
+        $config = DepartmentQadConfig::firstOrNew(['department_id' => $dept->id]);
+
+        return view('admin.dept.qad-config', compact('dept', 'config'));
+    }
+
+    public function updateQadConfig(Request $request)
+    {
+        $dept = $this->dept();
+
+        $validated = $request->validate([
+            'site_code' => 'required|string|max:20',
+            'buyer_code' => 'nullable|string|max:20',
+            'approver_code' => 'nullable|string|max:20',
+            'end_user_id' => 'nullable|string|max:20',
+            'requester_userid' => 'nullable|string|max:20',
+        ]);
+
+        DepartmentQadConfig::updateOrCreate(['department_id' => $dept->id], $validated);
+
+        return back()->with('success', 'Konfigurasi QAD berhasil disimpan.');
     }
 
     // ── Auth helpers ──────────────────────────────────────────────────────────

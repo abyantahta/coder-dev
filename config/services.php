@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // QAD SOAP — creates a real Purchase Requisition (SDI_CreatePR) when
+    // Warehouse builds a PR. Distinct from config/qad.php (item master
+    // sync, read-only) — this hits the QXtend broker, not the WSA one.
+    'qad_soap' => [
+        'url'      => env('QAD_SOAP_URL', 'http://qadeesdi.site:24079/qxi/services/QdocWebService'),
+        'username' => env('QAD_SOAP_USERNAME', 'mfg'),
+        'password' => env('QAD_SOAP_PASSWORD', '54nk31Dharma2025..!'),
+        'timeout'  => env('QAD_SOAP_TIMEOUT', 30),
+    ],
+
 ];

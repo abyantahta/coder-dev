@@ -139,24 +139,25 @@
 
 {{-- Create PR --}}
 <div class="bg-white rounded-xl shadow-sm p-5">
-    <h3 class="font-semibold text-slate-800 mb-3">Buat PR</h3>
+    <h3 class="font-semibold text-slate-800 mb-1">Kirim PR ke QAD</h3>
+    <p class="text-xs text-slate-500 mb-3">No. PR akan otomatis diisi oleh QAD (SDI_CreatePR) — tidak perlu diketik manual.</p>
+    @if ($partOrder->qad_response && $partOrder->status === 'pending_warehouse')
+    <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 mb-3">
+        Percobaan sebelumnya gagal: {{ $partOrder->qad_response }}
+    </div>
+    @endif
     @if ($partOrder->lines->isEmpty())
     <p class="text-sm text-slate-400">Tambahkan minimal 1 item sparepart terlebih dahulu.</p>
     @else
     <form method="POST" action="{{ route('warehouse.create-pr', $partOrder->workOrder) }}" class="space-y-3">
         @csrf
         <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">No. PR QAD</label>
-            <input type="text" name="pr_number" required placeholder="e.g. PR-2026-0001"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Catatan (opsional)</label>
             <textarea name="warehouse_note" rows="2"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('warehouse_note', $partOrder->warehouse_note) }}</textarea>
         </div>
         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
-            Buat PR
+            {{ $partOrder->qad_response && $partOrder->status === 'pending_warehouse' ? 'Coba Kirim Lagi' : 'Kirim ke QAD' }}
         </button>
     </form>
     @endif

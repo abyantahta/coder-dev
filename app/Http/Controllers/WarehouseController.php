@@ -8,6 +8,7 @@ use App\Models\WoPartOrder;
 use App\Models\WoPartOrderLine;
 use App\Models\WorkOrder;
 use App\Services\ApprovalService;
+use App\Services\Qad\QadRequisitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -78,16 +79,15 @@ class WarehouseController extends Controller
         ));
     }
 
-    // Warehouse — or the WO's own assigned staffer, acting as their own warehouse — creates a PR
-    public function createPr(Request $request, WorkOrder $workOrder)
+    // Warehouse — or the WO's own assigned staffer, acting as their own warehouse — sends the PR to QAD
+    public function createPr(Request $request, WorkOrder $workOrder, QadRequisitionService $qad)
     {
         $user = Auth::user();
         abort_unless($this->canManageOrder($user, $workOrder), 403);
         abort_unless($workOrder->status === 'pending_parts', 422, 'WO tidak dalam status menunggu parts.');
 
         $request->validate([
-            'pr_number'        => 'required|string|max:50',
-            'warehouse_note'   => 'nullable|string|max:500',
+            'warehouse_note' => 'nullable|string|max:500',
         ]);
 
         // Update the existing part order
@@ -98,19 +98,31 @@ class WarehouseController extends Controller
         abort_unless($order->lines()->exists(), 422, 'Tambahkan minimal 1 item sparepart sebelum membuat PR.');
 
         $order->update([
-            'handled_by'       => $user->id,
-            'pr_number'        => $request->pr_number,
-            'warehouse_note'   => $request->warehouse_note,
-            'status'           => 'pr_created',
-            'pr_date'          => now()->toDateString(),
+            'handled_by' => $user->id,
+            'warehouse_note' => $request->warehouse_note,
+        ]);
+
+        $result = $qad->createRequisition($order);
+
+        if (! $result['success']) {
+            $order->update(['qad_response' => $result['message']]);
+
+            return back()->with('error', "Gagal mengirim PR ke QAD: {$result['message']}");
+        }
+
+        $order->update([
+            'pr_number' => $result['qad_req_no'],
+            'status' => 'pr_created',
+            'pr_date' => now()->toDateString(),
             'expected_arrival' => now()->addDays(30)->toDateString(),
+            'qad_response' => $result['message'],
         ]);
 
         $workOrder->update(['status' => 'parts_ordered']);
         $workOrder->addHistory($user->id, 'parts_ordered',
-            "PR dibuat: {$request->pr_number}. Estimasi tiba: " . now()->addDays(30)->format('d M Y'));
+            "PR dikirim ke QAD: {$result['qad_req_no']}. Estimasi tiba: ".now()->addDays(30)->format('d M Y'));
 
-        return back()->with('success', "PR {$request->pr_number} berhasil dibuat. Estimasi tiba " . now()->addDays(30)->format('d M Y') . '.');
+        return back()->with('success', "PR {$result['qad_req_no']} berhasil dikirim ke QAD. Estimasi tiba ".now()->addDays(30)->format('d M Y').'.');
     }
 
     // Warehouse — or the WO's own assigned staffer — receives the parts

@@ -124,6 +124,10 @@ Route::middleware('auth')->group(function () {
         Route::put('/approval-steps/reorder', [DeptAdminController::class, 'reorderSteps'])->name('steps.reorder');
         Route::put('/approval-steps/{step}', [DeptAdminController::class, 'updateStep'])->name('steps.update');
         Route::delete('/approval-steps/{step}', [DeptAdminController::class, 'destroyStep'])->name('steps.destroy');
+
+        // QAD Config (site/buyer/approver codes for SDI_CreatePR)
+        Route::get('/qad-config', [DeptAdminController::class, 'qadConfig'])->name('qad-config.index');
+        Route::put('/qad-config', [DeptAdminController::class, 'updateQadConfig'])->name('qad-config.update');
     });
 
     // Super Admin — IT global admin

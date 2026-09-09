@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cmd /c \"dir d:\\\\warehouse /a\")",
+      "PowerShell(cmd /c \"dir d:\\\\warehouse\\\\database /a /s /b\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/login)",
+      "Bash(php artisan *)",
+      "Bash(composer require *)",
+      "Bash(php -m)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{content_type}\" \"http://127.0.0.1:8000/master/users/1/qr\" -b \"laravel_session=test\")",
+      "Bash(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt \"http://127.0.0.1:8000/login\")",
+      "Bash(curl -s http://127.0.0.1:8000/login)",
+      "Bash(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt -X POST \"http://127.0.0.1:8000/login\" -d \"email=superadmin@warehouse.com&password=password&_token=$\\(curl -s http://127.0.0.1:8000/login)"
+    ]
+  }
+}
