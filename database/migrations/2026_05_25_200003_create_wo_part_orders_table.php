@@ -15,6 +15,7 @@ return new class extends Migration
             $table->foreignId('handled_by')->nullable()->constrained('users'); // Warehouse-MTC
             $table->string('pr_number')->nullable();   // QAD PR Number
             $table->text('request_note')->nullable();  // UH note about what's needed
+            $table->date('need_date')->nullable();      // one need date for the whole PR batch, not per line
             $table->text('warehouse_note')->nullable();
             // status: pending_warehouse → pr_created → received
             $table->string('status')->default('pending_warehouse');

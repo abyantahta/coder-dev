@@ -21,6 +21,7 @@ return new class extends Migration
                 'standard',          // simple accept/reject/forward
                 'spare_parts_check', // MTC: fill spare parts form
                 'assign',            // actor selects another user to assign
+                'material_check',    // assigned staffer checks material availability themselves (e.g. GA)
                 'completion',        // assigned_member marks work done
                 'requester_review',  // requester approves or requests rework
             ])->default('standard');
@@ -37,6 +38,11 @@ return new class extends Migration
 
             // Auto-advance if no action taken within N hours (null = never)
             $table->unsignedSmallInteger('auto_advance_hours')->nullable();
+
+            // Meaningful on requester_review steps: extra hours a rework gets
+            // on top of whatever time was left on the original deadline (or
+            // on top of "now" if it had already passed). Null = app default.
+            $table->unsignedSmallInteger('rework_additional_hours')->nullable();
 
             $table->timestamps();
 
