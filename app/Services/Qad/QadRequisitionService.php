@@ -163,7 +163,9 @@ class QadRequisitionService
     private function buildRequisitionXml(WoPartOrder $order, DepartmentQadConfig $config): string
     {
         $today = now()->format('Y-m-d');
-        $dueDate = now()->addDays(10)->format('Y-m-d');
+        // One need date for the whole PR batch (not per line) — required
+        // before a PR can be created, see WarehouseController::createPr().
+        $needDate = $order->need_date?->format('Y-m-d') ?? $today;
         $purpose = $this->esc($order->warehouse_note ?: $order->request_note ?: 'Kebutuhan '.$order->workOrder->wo_number);
 
         // rqmNbr filled means this order already has a QAD requisition
@@ -173,7 +175,7 @@ class QadRequisitionService
 
         $lines = '';
         foreach ($order->lines as $i => $line) {
-            $lines .= $this->buildLineXml($i + 1, $line, $dueDate, $config, $order->pr_number);
+            $lines .= $this->buildLineXml($i + 1, $line, $needDate, $config, $order->pr_number);
         }
 
         $siteCode = $this->esc($config->site_code);
@@ -255,8 +257,8 @@ class QadRequisitionService
                     <rqmVend></rqmVend>
                     <rqmShip>{$siteCode}</rqmShip>
                     <rqmReqDate>{$today}</rqmReqDate>
-                    <rqmNeedDate>{$today}</rqmNeedDate>
-                    <rqmDueDate>{$today}</rqmDueDate>
+                    <rqmNeedDate>{$needDate}</rqmNeedDate>
+                    <rqmDueDate>{$needDate}</rqmDueDate>
                     <rqmRqbyUserid>{$rqbyUserid}</rqmRqbyUserid>
                     <rqmEndUserid>{$endUserid}</rqmEndUserid>
                     <rqmRmks>{$purpose}</rqmRmks>
@@ -276,7 +278,7 @@ class QadRequisitionService
 XML;
     }
 
-    private function buildLineXml(int $lineNo, WoPartOrderLine $line, string $dueDate, DepartmentQadConfig $config, ?string $rqmNbr = null): string
+    private function buildLineXml(int $lineNo, WoPartOrderLine $line, string $needDate, DepartmentQadConfig $config, ?string $rqmNbr = null): string
     {
         $part = $this->esc($line->part_code ?? '');
         $desc = $this->esc($line->description ?? '');
@@ -294,8 +296,8 @@ XML;
                         <rqdVend></rqdVend>
                         <rqdReqQty>{$line->quantity}</rqdReqQty>
                         <rqdUm>{$um}</rqdUm>
-                        <rqdDueDate>{$dueDate}</rqdDueDate>
-                        <rqdNeedDate>{$dueDate}</rqdNeedDate>
+                        <rqdDueDate>{$needDate}</rqdDueDate>
+                        <rqdNeedDate>{$needDate}</rqdNeedDate>
                         <desc1>{$desc}</desc1>
                         <rqdLotRcpt>true</rqdLotRcpt>
                         <rqdUmConv></rqdUmConv>

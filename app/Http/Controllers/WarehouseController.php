@@ -79,6 +79,24 @@ class WarehouseController extends Controller
         ));
     }
 
+    // Full historical list of every part order (not just pending/active/last-30-days)
+    public function history(Request $request)
+    {
+        $orders = WoPartOrder::with(['workOrder', 'requestedBy', 'handledBy'])
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = $request->q;
+                $query->where(fn ($q) => $q
+                    ->where('pr_number', 'like', "%{$term}%")
+                    ->orWhereHas('workOrder', fn ($q2) => $q2->where('wo_number', 'like', "%{$term}%")));
+            })
+            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->status))
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('warehouse.history', compact('orders'));
+    }
+
     // Warehouse — or the WO's own assigned staffer, acting as their own warehouse — sends the PR to QAD
     public function createPr(Request $request, WorkOrder $workOrder, QadRequisitionService $qad)
     {
@@ -87,6 +105,7 @@ class WarehouseController extends Controller
         abort_unless($workOrder->status === 'pending_parts', 422, 'WO tidak dalam status menunggu parts.');
 
         $request->validate([
+            'need_date' => 'required|date',
             'warehouse_note' => 'nullable|string|max:500',
         ]);
 
@@ -99,6 +118,7 @@ class WarehouseController extends Controller
 
         $order->update([
             'handled_by' => $user->id,
+            'need_date' => $request->need_date,
             'warehouse_note' => $request->warehouse_note,
         ]);
 
@@ -169,15 +189,13 @@ class WarehouseController extends Controller
             'mode'        => 'required|in:catalog,custom',
             'qad_item_id' => 'required_if:mode,catalog|nullable|integer|exists:qad_items,id',
             'description' => 'required_if:mode,custom|nullable|string|max:255',
-            'quantity'    => 'required|numeric|min:0.01',
+            'quantity'    => 'required|integer|min:1',
             'uom'         => 'required|string|max:20',
-            'needed_date' => 'nullable|date',
         ]);
 
         $line = [
             'quantity'    => $request->quantity,
             'uom'         => $request->uom,
-            'needed_date' => $request->needed_date,
             'added_by'    => $user->id,
         ];
 

@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
     // Warehouse MTC — dedicated warehouse dashboard, role-gated
     Route::middleware('role:warehouse_mtc,section_head')->prefix('warehouse')->name('warehouse.')->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('index');
+        Route::get('/history', [WarehouseController::class, 'history'])->name('history');
     });
 
     // Part-order management — dedicated warehouse staff manage any order;

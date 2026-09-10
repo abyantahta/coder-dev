@@ -9,12 +9,11 @@ class WoPartOrderLine extends Model
 {
     protected $fillable = [
         'wo_part_order_id', 'qad_item_id', 'part_code', 'description',
-        'quantity', 'uom', 'needed_date', 'is_custom', 'added_by', 'notes',
+        'quantity', 'uom', 'is_custom', 'added_by', 'notes',
     ];
 
     protected $casts = [
-        'quantity' => 'decimal:2',
-        'needed_date' => 'date',
+        'quantity' => 'integer',
         'is_custom' => 'boolean',
     ];
 

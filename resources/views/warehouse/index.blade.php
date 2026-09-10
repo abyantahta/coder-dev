@@ -8,6 +8,13 @@
 
 @section('content')
 
+<div class="flex justify-end mb-4">
+    <a href="{{ route('warehouse.history') }}"
+        class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+        Riwayat PR Lengkap →
+    </a>
+</div>
+
 {{-- Stats --}}
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
     @foreach ([

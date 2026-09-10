@@ -10,11 +10,12 @@ class WoPartOrder extends Model
 {
     protected $fillable = [
         'wo_id', 'requested_by', 'handled_by',
-        'pr_number', 'request_note', 'warehouse_note',
+        'pr_number', 'request_note', 'need_date', 'warehouse_note',
         'status', 'pr_date', 'expected_arrival', 'received_at', 'qad_response',
     ];
 
     protected $casts = [
+        'need_date' => 'date',
         'pr_date' => 'date',
         'expected_arrival' => 'date',
         'received_at' => 'datetime',

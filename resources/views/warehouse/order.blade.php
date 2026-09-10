@@ -59,7 +59,6 @@
                 <div class="text-xs text-slate-500">
                     @if ($line->part_code)<span class="font-mono">{{ $line->part_code }}</span> · @endif
                     {{ $line->quantity }} {{ $line->uom }}
-                    @if ($line->needed_date) · butuh {{ $line->needed_date->format('d M Y') }} @endif
                 </div>
             </div>
             @if ($partOrder->status === 'pending_warehouse')
@@ -100,12 +99,10 @@
                 <div class="text-sm font-medium text-slate-800">{{ $item->description ?: $item->qad_code }}</div>
                 <div class="text-xs text-slate-500 font-mono">{{ $item->qad_code }}</div>
             </div>
-            <input type="number" name="quantity" required step="0.01" min="0.01" value="1" placeholder="Qty"
+            <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
                 class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <input type="text" name="uom" required placeholder="UOM"
                 class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <input type="date" name="needed_date"
-                class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
                 + Tambah
             </button>
@@ -125,12 +122,10 @@
         <input type="hidden" name="mode" value="custom">
         <input type="text" name="description" required placeholder="Nama / deskripsi item"
             class="flex-1 min-w-[200px] border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <input type="number" name="quantity" required step="0.01" min="0.01" value="1" placeholder="Qty"
+        <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
             class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <input type="text" name="uom" required placeholder="UOM"
             class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <input type="date" name="needed_date"
-            class="border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button type="submit" class="bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
             + Tambah Manual
         </button>
@@ -151,6 +146,12 @@
     @else
     <form method="POST" action="{{ route('warehouse.create-pr', $partOrder->workOrder) }}" class="space-y-3">
         @csrf
+        <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Butuh Tanggal <span class="text-red-500">*</span></label>
+            <input type="date" name="need_date" required value="{{ old('need_date', optional($partOrder->need_date)->toDateString()) }}"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-slate-400 mt-1">Berlaku untuk seluruh item di PR ini (bukan per item).</p>
+        </div>
         <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Catatan (opsional)</label>
             <textarea name="warehouse_note" rows="2"
