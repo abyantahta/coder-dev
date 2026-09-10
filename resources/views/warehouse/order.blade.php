@@ -139,7 +139,7 @@
 
 {{-- Create PR --}}
 <div class="bg-white rounded-xl shadow-sm p-5">
-    <h3 class="font-semibold text-slate-800 mb-1">Kirim PR ke QAD</h3>
+    <h3 class="font-semibold text-slate-800 mb-1">Buat PR</h3>
     <p class="text-xs text-slate-500 mb-3">No. PR akan otomatis diisi oleh QAD (SDI_CreatePR) — tidak perlu diketik manual.</p>
     @if ($partOrder->qad_response && $partOrder->status === 'pending_warehouse')
     <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-xs text-red-700 mb-3">
@@ -157,7 +157,7 @@
                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">{{ old('warehouse_note', $partOrder->warehouse_note) }}</textarea>
         </div>
         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition">
-            {{ $partOrder->qad_response && $partOrder->status === 'pending_warehouse' ? 'Coba Kirim Lagi' : 'Kirim ke QAD' }}
+            {{ $partOrder->qad_response && $partOrder->status === 'pending_warehouse' ? 'Buat Ulang PR' : 'Buat PR' }}
         </button>
     </form>
     @endif

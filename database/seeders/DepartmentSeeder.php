@@ -222,5 +222,20 @@ class DepartmentSeeder extends Seeder
             'auto_advance_hours'      => 48,
             'rework_additional_hours' => 24,
         ]);
+
+        // ── QAD config for PR submission (SDI_CreatePR) ─────────────────────────
+        // site/buyer/approver/requester are shared across departments in this
+        // company's QAD setup — only end_user_id varies, one per department's
+        // own code (MTC/GA/QA).
+        foreach ([$mtc, $ga, $qa] as $dept) {
+            \App\Models\DepartmentQadConfig::create([
+                'department_id'    => $dept->id,
+                'site_code'        => '7101',
+                'buyer_code'       => 'iwan',
+                'approver_code'    => 'agung',
+                'end_user_id'      => $dept->code,
+                'requester_userid' => 'tri',
+            ]);
+        }
     }
 }

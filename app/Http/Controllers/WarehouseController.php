@@ -107,7 +107,7 @@ class WarehouseController extends Controller
         if (! $result['success']) {
             $order->update(['qad_response' => $result['message']]);
 
-            return back()->with('error', "Gagal mengirim PR ke QAD: {$result['message']}");
+            return back()->with('error', "Gagal membuat PR: {$result['message']}");
         }
 
         $order->update([
@@ -120,9 +120,9 @@ class WarehouseController extends Controller
 
         $workOrder->update(['status' => 'parts_ordered']);
         $workOrder->addHistory($user->id, 'parts_ordered',
-            "PR dikirim ke QAD: {$result['qad_req_no']}. Estimasi tiba: ".now()->addDays(30)->format('d M Y'));
+            "PR dibuat: {$result['qad_req_no']}. Estimasi tiba: ".now()->addDays(30)->format('d M Y'));
 
-        return back()->with('success', "PR {$result['qad_req_no']} berhasil dikirim ke QAD. Estimasi tiba ".now()->addDays(30)->format('d M Y').'.');
+        return back()->with('success', "PR {$result['qad_req_no']} berhasil dibuat. Estimasi tiba ".now()->addDays(30)->format('d M Y').'.');
     }
 
     // Warehouse — or the WO's own assigned staffer — receives the parts
