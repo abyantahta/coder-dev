@@ -388,6 +388,61 @@
             </form>
 
             {{-- ASSIGN ke MEMBER / STAFF --}}
+            @elseif ($stepType === 'assign' && $currentStep->requires_schedule)
+            <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
+            <p class="text-xs text-slate-500 mb-4">Tentukan kapan pengerjaan dimulai dan target selesainya.</p>
+            <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="space-y-4">
+                @csrf
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">{{ ucfirst(str_replace('_', ' ', $currentStep->assigns_to_role_key)) }}</label>
+                    <select name="member_id" required
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">— Pilih {{ ucfirst(str_replace('_', ' ', $currentStep->assigns_to_role_key)) }} —</option>
+                        @foreach ($assignableMembers as $m)
+                        <option value="{{ $m->id }}">{{ $m->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Mulai Dikerjakan</label>
+                        <input type="datetime-local" name="scheduled_start_at" id="sched-start" required
+                            value="{{ old('scheduled_start_at', now()->format('Y-m-d\TH:i')) }}"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Target Selesai</label>
+                        <input type="date" name="deadline" id="sched-end" required
+                            value="{{ old('deadline', $workOrder->leadtime_days ? now()->addDays($workOrder->leadtime_days)->format('Y-m-d') : '') }}"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <p id="sched-duration" class="text-xs text-slate-400 -mt-2"></p>
+
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+                    {{ $currentStep->action_label }}
+                </button>
+            </form>
+            <script>
+                (function () {
+                    const start = document.getElementById('sched-start');
+                    const end = document.getElementById('sched-end');
+                    const hint = document.getElementById('sched-duration');
+                    function sync() {
+                        if (!start.value) return;
+                        end.min = start.value.slice(0, 10);
+                        if (!end.value) { hint.textContent = ''; return; }
+                        const days = Math.round((new Date(end.value) - new Date(start.value.slice(0, 10))) / 86400000);
+                        hint.textContent = days >= 0 ? `Durasi pengerjaan: ${days} hari` : 'Target selesai tidak boleh sebelum mulai.';
+                    }
+                    start.addEventListener('change', sync);
+                    end.addEventListener('change', sync);
+                    sync();
+                })();
+            </script>
+
+            {{-- ASSIGN ke MEMBER / STAFF (tanpa penjadwalan) --}}
             @elseif ($stepType === 'assign')
             <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
             @if ($workOrder->leadtime_days)

@@ -11,13 +11,14 @@ class ApprovalStep extends Model
         'department_id', 'step_order', 'name', 'actor_role_id',
         'step_type', 'can_reject', 'can_forward', 'can_assign',
         'assigns_to_role_key', 'action_label', 'reject_label',
-        'auto_advance_hours', 'rework_additional_hours',
+        'auto_advance_hours', 'rework_additional_hours', 'requires_schedule',
     ];
 
     protected $casts = [
         'can_reject'  => 'boolean',
         'can_forward' => 'boolean',
         'can_assign'  => 'boolean',
+        'requires_schedule' => 'boolean',
     ];
 
     public function department(): BelongsTo

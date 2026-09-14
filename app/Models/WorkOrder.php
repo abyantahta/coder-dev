@@ -15,7 +15,7 @@ class WorkOrder extends Model
         'target_department_id', 'wo_category_id', 'current_step_order', 'leadtime_days',
         'forwarded_to', 'forward_reason',
         'unit_id', 'assigned_group_id', 'assigned_member_id', 'accepted_by',
-        'accepted_at', 'assigned_group_at', 'deadline', 'parts_ready_at',
+        'accepted_at', 'assigned_group_at', 'scheduled_start_at', 'deadline', 'parts_ready_at',
         'completed_at',
         'rework_count', 'rework_requested_at', 'rework_deadline',
         'finished_at', 'score',
@@ -27,6 +27,7 @@ class WorkOrder extends Model
     protected $casts = [
         'accepted_at'        => 'datetime',
         'assigned_group_at'  => 'datetime',
+        'scheduled_start_at' => 'datetime',
         'deadline'           => 'datetime',
         'parts_ready_at'     => 'datetime',
         'completed_at'       => 'datetime',

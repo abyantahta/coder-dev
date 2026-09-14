@@ -156,6 +156,17 @@
                 </label>
             </div>
 
+            <div>
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" name="requires_schedule" id="step-requires-schedule" value="1" class="rounded">
+                    Assign dengan Penjadwalan
+                </label>
+                <p class="text-xs text-slate-400 mt-1 ml-6">
+                    Khusus step assign ke individu — assigner menentukan sendiri tanggal/jam mulai dan
+                    tanggal target selesai, menggantikan perhitungan leadtime otomatis.
+                </p>
+            </div>
+
             <div class="flex gap-3 pt-2">
                 <button type="submit"
                     class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold px-5 py-2 text-sm transition">
@@ -189,6 +200,7 @@ function openEditStep(id, step) {
     document.getElementById('step-can-reject').checked   = !!step.can_reject;
     document.getElementById('step-can-forward').checked  = !!step.can_forward;
     document.getElementById('step-can-assign').checked   = !!step.can_assign;
+    document.getElementById('step-requires-schedule').checked = !!step.requires_schedule;
     window.scrollTo(0, document.getElementById('step-form').getBoundingClientRect().top + window.scrollY - 80);
 }
 

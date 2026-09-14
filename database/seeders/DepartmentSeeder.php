@@ -70,13 +70,15 @@ class DepartmentSeeder extends Seeder
             'assigns_to_role_key'=> 'group_head',
             'action_label'       => 'Assign ke Group Head',
         ]);
-        // Step 4: Group Head assigns member
+        // Step 4: Group Head assigns member — this one also schedules
+        // (start date/time + target selesai), unlike the plain group assign above.
         ApprovalStep::create([
             'department_id'      => $mtc->id, 'step_order' => 4,
             'name'               => 'Assign ke Teknisi',
             'actor_role_id'      => $mtcGH->id,
             'step_type'          => 'assign',
             'can_assign'         => true,
+            'requires_schedule'  => true,
             'assigns_to_role_key'=> 'member',
             'action_label'       => 'Assign ke Teknisi',
         ]);

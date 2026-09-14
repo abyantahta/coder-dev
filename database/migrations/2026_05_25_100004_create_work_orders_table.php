@@ -43,7 +43,10 @@ return new class extends Migration
 
             // Timestamps for SLA tracking
             $table->timestamp('accepted_at')->nullable();
-            $table->timestamp('deadline')->nullable();       // accepted_at + 7 days
+            // When the assigner schedules the work explicitly (ApprovalStep.requires_schedule),
+            // this is the committed start; otherwise null and the leadtime counts from assign time.
+            $table->timestamp('scheduled_start_at')->nullable();
+            $table->timestamp('deadline')->nullable();       // accepted_at + 7 days, or the scheduled end date
             $table->timestamp('completed_at')->nullable();   // member marks done
 
             // Rework

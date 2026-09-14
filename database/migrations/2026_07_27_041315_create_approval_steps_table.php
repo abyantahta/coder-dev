@@ -30,6 +30,13 @@ return new class extends Migration
             $table->boolean('can_forward')->default(false);
             $table->boolean('can_assign')->default(false);
 
+            // On an assign step: when true, the assigner also sets a start
+            // date/time + end date for the WO's leadtime instead of it
+            // being auto-computed from leadtime_days at assign time. Lets
+            // one department have both a plain assign (e.g. Unit Head ->
+            // Group Head) and a scheduled one (e.g. Group Head -> Teknisi).
+            $table->boolean('requires_schedule')->default(false);
+
             // For assign steps: the role.key of the role being assigned to
             $table->string('assigns_to_role_key', 50)->nullable();
 

@@ -233,28 +233,56 @@ class ApprovalService
                 'current_step_order' => $next?->step_order ?? $wo->current_step_order,
             ]);
             $wo->addHistory($actor->id, 'assigned_group', "Diassign ke group {$group->name}.");
-        } else {
-            $request->validate(['member_id' => 'required|integer|exists:users,id']);
-            $member = User::findOrFail($request->member_id);
+            return;
+        }
 
-            // If the next step checks material availability, the leadtime
-            // hasn't started yet — defer the deadline to handleMaterialCheck()
-            // / onPartsReceived() instead of setting it here.
-            $deadline = $next?->step_type === 'material_check'
-                ? null
-                : $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+        $request->validate(['member_id' => 'required|integer|exists:users,id']);
+        $member = User::findOrFail($request->member_id);
+
+        // Some assign steps hand full scheduling control to the assigner
+        // (start date/time + end date) instead of auto-computing the
+        // deadline from leadtime_days — configurable per step so the same
+        // department can mix plain assigns with scheduled ones.
+        if ($step->requires_schedule) {
+            $request->validate([
+                'scheduled_start_at' => 'required|date',
+                'deadline'           => 'required|date|after_or_equal:scheduled_start_at',
+            ]);
+
+            $scheduledStart = Carbon::parse($request->scheduled_start_at);
+            $deadline = Carbon::parse($request->deadline);
 
             $wo->update([
                 'status'             => 'assigned_member',
                 'assigned_member_id' => $member->id,
+                'scheduled_start_at' => $scheduledStart,
                 'deadline'           => $deadline,
                 'current_step_order' => $next?->step_order ?? $wo->current_step_order,
             ]);
 
-            $wo->addHistory($actor->id, 'assigned_member', $deadline
-                ? "Diassign ke {$member->name}. Deadline: {$deadline->format('d M Y')}."
-                : "Diassign ke {$member->name}. Leadtime akan mulai setelah pengecekan material.");
+            $wo->addHistory($actor->id, 'assigned_member',
+                "Diassign ke {$member->name}. Jadwal: {$scheduledStart->format('d M Y, H:i')} — {$deadline->format('d M Y')}.");
+
+            return;
         }
+
+        // If the next step checks material availability, the leadtime
+        // hasn't started yet — defer the deadline to handleMaterialCheck()
+        // / onPartsReceived() instead of setting it here.
+        $deadline = $next?->step_type === 'material_check'
+            ? null
+            : $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+
+        $wo->update([
+            'status'             => 'assigned_member',
+            'assigned_member_id' => $member->id,
+            'deadline'           => $deadline,
+            'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+        ]);
+
+        $wo->addHistory($actor->id, 'assigned_member', $deadline
+            ? "Diassign ke {$member->name}. Deadline: {$deadline->format('d M Y')}."
+            : "Diassign ke {$member->name}. Leadtime akan mulai setelah pengecekan material.");
     }
 
     private function handleCompletion(WorkOrder $wo, User $actor, Request $request): void

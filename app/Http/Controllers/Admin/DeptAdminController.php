@@ -187,6 +187,7 @@ class DeptAdminController extends Controller
             'can_reject'         => 'boolean',
             'can_forward'        => 'boolean',
             'can_assign'         => 'boolean',
+            'requires_schedule'  => 'boolean',
             'assigns_to_role_key'=> 'nullable|string|max:50',
             'action_label'       => 'required|string|max:100',
             'reject_label'       => 'nullable|string|max:100',
@@ -198,6 +199,7 @@ class DeptAdminController extends Controller
         $validated['can_reject']    = $request->boolean('can_reject');
         $validated['can_forward']   = $request->boolean('can_forward');
         $validated['can_assign']    = $request->boolean('can_assign');
+        $validated['requires_schedule'] = $request->boolean('requires_schedule');
 
         ApprovalStep::create($validated);
 
@@ -216,6 +218,7 @@ class DeptAdminController extends Controller
             'can_reject'         => 'boolean',
             'can_forward'        => 'boolean',
             'can_assign'         => 'boolean',
+            'requires_schedule'  => 'boolean',
             'assigns_to_role_key'=> 'nullable|string|max:50',
             'action_label'       => 'required|string|max:100',
             'reject_label'       => 'nullable|string|max:100',
@@ -226,6 +229,7 @@ class DeptAdminController extends Controller
         $validated['can_reject']  = $request->boolean('can_reject');
         $validated['can_forward'] = $request->boolean('can_forward');
         $validated['can_assign']  = $request->boolean('can_assign');
+        $validated['requires_schedule'] = $request->boolean('requires_schedule');
 
         $step->update($validated);
 
