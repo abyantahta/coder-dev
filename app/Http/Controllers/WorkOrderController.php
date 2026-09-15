@@ -9,6 +9,7 @@ use App\Models\WoCategory;
 use App\Models\WoPartOrder;
 use App\Models\WorkOrder;
 use App\Services\ApprovalService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -22,94 +23,133 @@ class WorkOrderController extends Controller
         $user = Auth::user();
         $with = ['requester', 'unit', 'assignedGroup', 'assignedMember'];
 
-        $otherWos = null;
+        $base = WorkOrder::visibleTo($user)->with($with);
+        $this->applyFilters($request, $base);
 
-        if ($user->isUnitHead()) {
-            $ownQuery = WorkOrder::with($with)
-                ->where('destination', 'maintenance')
-                ->where(fn ($q) => $q->whereNull('unit_id')->orWhere('unit_id', $user->unit_id));
+        $closed = ['finished', 'cancelled', 'rejected'];
 
-            $otherQuery = WorkOrder::with($with)
-                ->where('destination', 'maintenance')
-                ->whereNotNull('unit_id')
-                ->where('unit_id', '!=', $user->unit_id);
+        $inboxQuery    = (clone $base)->waitingOn($user);
+        $inboxIds      = (clone $inboxQuery)->pluck('id');
+        $progressQuery = (clone $base)->whereNotIn('status', $closed);
+        if ($inboxIds->isNotEmpty()) {
+            $progressQuery->whereNotIn('id', $inboxIds);
+        }
+        $historyQuery  = (clone $base)->whereIn('status', $closed);
 
-            $this->applyFilters($request, $ownQuery);
-            $this->applyFilters($request, $otherQuery);
+        $inboxCount    = (clone $inboxQuery)->count();
+        $progressCount = (clone $progressQuery)->count();
+        $historyCount  = (clone $historyQuery)->count();
 
-            $wos      = $ownQuery->latest()->paginate(15)->withQueryString();
-            $otherWos = $otherQuery->latest()->paginate(10, ['*'], 'other_page')->withQueryString();
-
-        } elseif ($user->isGroupHead()) {
-            $ownQuery = WorkOrder::with($with)
-                ->where('destination', 'maintenance')
-                ->where('assigned_group_id', $user->group_id);
-
-            $otherQuery = WorkOrder::with($with)
-                ->where('destination', 'maintenance')
-                ->whereNotNull('assigned_group_id')
-                ->where('assigned_group_id', '!=', $user->group_id)
-                ->whereNotIn('status', ['pending', 'accepted', 'rejected', 'pending_parts', 'parts_ordered', 'parts_received']);
-
-            $this->applyFilters($request, $ownQuery);
-            $this->applyFilters($request, $otherQuery);
-
-            $wos      = $ownQuery->latest()->paginate(15)->withQueryString();
-            $otherWos = $otherQuery->latest()->paginate(10, ['*'], 'other_page')->withQueryString();
-
-        } else {
-            $query = WorkOrder::with($with);
-
-            if ($user->isSectionHead()) {
-                $query->whereIn('destination', ['maintenance', 'qa', 'ga']);
-            } elseif ($user->isMember()) {
-                $query->where('assigned_member_id', $user->id);
-            } elseif ($user->isWarehouseMtc()) {
-                $query->whereIn('status', ['pending_parts', 'parts_ordered', 'parts_received'])
-                    ->where('destination', 'maintenance');
-            } elseif ($user->isQaGroupHead() || $user->isQaSectionHead()) {
-                $query->where('destination', 'qa');
-            } elseif ($user->isQaMember()) {
-                $query->where('assigned_member_id', $user->id);
-            } elseif ($user->isGaSectionHead()) {
-                $query->where('destination', 'ga');
-            } else {
-                $query->where('requester_id', $user->id);
-            }
-
-            $this->applyFilters($request, $query);
-            $wos = $query->latest()->paginate(15)->withQueryString();
+        $tab = $request->query('tab');
+        if (! in_array($tab, ['inbox', 'progress', 'history'], true)) {
+            $tab = $inboxCount > 0 ? 'inbox' : 'progress';
         }
 
-        return view('work-orders.index', compact('wos', 'otherWos', 'user'));
+        $wos = $this->applyListingOrder(match ($tab) {
+            'inbox'    => $inboxQuery,
+            'history'  => $historyQuery,
+            default    => $progressQuery,
+        })->paginate(15)->withQueryString();
+
+        $filterGroups = $this->filterGroupsFor($user);
+
+        return view('work-orders.index', compact(
+            'wos', 'user', 'tab',
+            'inboxCount', 'progressCount', 'historyCount',
+            'filterGroups'
+        ));
+    }
+
+    private function applyListingOrder($query)
+    {
+        return $query
+            ->orderByRaw('CASE WHEN deadline IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('deadline')
+            ->orderByRaw("CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 ELSE 5 END");
     }
 
     private function applyFilters(Request $request, $query): void
     {
-        if ($request->status)   { $query->where('status', $request->status); }
-        if ($request->priority) { $query->where('priority', $request->priority); }
+        if ($request->status) { $query->where('status', $request->status); }
         if ($request->search) {
             $query->where(fn ($q) => $q
                 ->where('title', 'like', '%' . $request->search . '%')
                 ->orWhere('wo_number', 'like', '%' . $request->search . '%'));
         }
+
+        $from = $this->parseFilterDate($request->date_from);
+        $to   = $this->parseFilterDate($request->date_to);
+        if ($from && $to && $from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+        if ($from) { $query->whereDate('created_at', '>=', $from->toDateString()); }
+        if ($to)   { $query->whereDate('created_at', '<=', $to->toDateString()); }
+
+        if ($request->group_id) {
+            $query->where('assigned_group_id', $request->group_id);
+        }
+
+        if ($request->member_id) {
+            $memberId = (int) $request->member_id;
+            if ($request->group_id) {
+                $inTeam = User::whereKey($memberId)
+                    ->where('group_id', $request->group_id)
+                    ->where('role', 'member')
+                    ->exists();
+                if ($inTeam) {
+                    $query->where('assigned_member_id', $memberId);
+                }
+            } else {
+                $query->where('assigned_member_id', $memberId);
+            }
+        }
+    }
+
+    private function parseFilterDate(mixed $value): ?Carbon
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->startOfDay();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function filterGroupsFor(User $user)
+    {
+        $query = MaintenanceGroup::with([
+            'users' => fn ($q) => $q->whereIn('role', ['group_head', 'member'])->orderBy('name'),
+        ])->orderBy('name');
+
+        if ($user->isUnitHead() && $user->unit_id) {
+            $query->where('unit_id', $user->unit_id);
+        } elseif (($user->isGroupHead() || $user->isMember()) && $user->group_id) {
+            $query->where('id', $user->group_id);
+        }
+
+        return $query->get()->map(function (MaintenanceGroup $group) {
+            $head = $group->users->firstWhere('role', 'group_head');
+
+            return [
+                'id'        => $group->id,
+                'name'      => $group->name,
+                'head_id'   => $head?->id,
+                'head_name' => $head?->name ?? $group->name,
+                'members'   => $group->users
+                    ->where('role', 'member')
+                    ->values()
+                    ->map(fn (User $m) => ['id' => $m->id, 'name' => $m->name])
+                    ->values(),
+            ];
+        })->values();
     }
 
     public function create()
     {
-        $departments = Department::where('is_active', true)->get();
-
-        // All categories grouped by department_id for JS filtering
-        $categoriesByDept = WoCategory::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get()
-            ->groupBy('department_id')
-            ->map(fn ($cats) => $cats->map(fn ($c) => [
-                'id'   => $c->id,
-                'name' => $c->name,
-            ]));
-
-        return view('work-orders.create', compact('departments', 'categoriesByDept'));
+        return redirect()->route('work-orders.index', ['buat' => 1]);
     }
 
     public function store(Request $request)
@@ -135,7 +175,7 @@ class WorkOrderController extends Controller
         $wo = WorkOrder::create([
             ...$validated,
             ...$attachment,
-            'wo_number'          => WorkOrder::generateWoNumber(),
+            'wo_number'          => WorkOrder::generateWoNumber($dept),
             'requester_id'       => Auth::id(),
             'destination'        => $dept->slug,
             'leadtime_days'      => $woCategory->leadtime_days,

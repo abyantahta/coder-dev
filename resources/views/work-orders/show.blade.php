@@ -82,6 +82,8 @@
                 <div><div class="text-xs text-slate-400 mb-0.5">Mulai Dikerjakan</div>
                     <div class="text-sm font-medium text-slate-800">{{ $workOrder->scheduled_start_at->format('d M Y, H:i') }}</div></div>
                 @endif
+                <div><div class="text-xs text-slate-400 mb-0.5">Dibuat</div>
+                    <div class="text-sm font-medium text-slate-800">{{ $workOrder->created_at->format('d M Y, H:i') }}</div></div>
                 @if ($workOrder->deadline)
                 <div><div class="text-xs text-slate-400 mb-0.5">Deadline</div>
                     <div class="text-sm font-medium {{ $workOrder->isOverdue() ? 'text-red-600' : 'text-slate-800' }}">

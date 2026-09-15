@@ -259,7 +259,10 @@
 <div class="bg-white rounded-xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-slate-800">WO Aktif Saya</h3>
-        <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('work-orders.create') }}" class="js-open-wo-create text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-1.5 rounded-lg">Buat WO</a>
+            <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+        </div>
     </div>
     <div class="space-y-2">
         @forelse ($myWos as $wo)
@@ -439,7 +442,10 @@
 <div class="bg-white rounded-xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-slate-800">WO QA Aktif Saya</h3>
-        <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('work-orders.create') }}" class="js-open-wo-create text-xs bg-blue-600 hover:bg-blue-700 text-white font-medium px-3 py-1.5 rounded-lg">Buat WO</a>
+            <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+        </div>
     </div>
     <div class="space-y-2">
         @forelse ($myWos as $wo)
@@ -549,7 +555,7 @@
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-slate-800">Work Order Saya</h3>
         <a href="{{ route('work-orders.create') }}"
-            class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+            class="js-open-wo-create inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
             </svg>
@@ -578,7 +584,7 @@
         <div class="text-center py-8">
             <p class="text-slate-400 text-sm mb-3">Belum ada Work Order.</p>
             <a href="{{ route('work-orders.create') }}"
-                class="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+                class="js-open-wo-create inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
                 Buat WO Pertama
             </a>
         </div>

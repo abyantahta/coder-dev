@@ -63,28 +63,31 @@
             </a>
 
             {{-- Work Orders --}}
-            @if (!$user->isMember() || true)
-            <a href="{{ route('work-orders.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('work-orders.*') && !request()->routeIs('work-orders.create') ? $navOn : $navOff }}">
+            @php $woNavOn = request()->routeIs('work-orders.*') && !request()->routeIs('work-orders.create'); @endphp
+            <a href="{{ route('work-orders.index', ($woInboxCount ?? 0) > 0 ? ['tab' => 'inbox'] : []) }}"
+                class="{{ $navBase }} {{ $woNavOn ? $navOn : $navOff }}">
                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                Work Orders
+                <span class="flex-1">Work Orders</span>
+                @if (($woInboxCount ?? 0) > 0)
+                <span class="min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center
+                    {{ $woNavOn ? 'bg-white/20 text-white' : 'bg-ember text-white' }}">
+                    {{ $woInboxCount > 99 ? '99+' : $woInboxCount }}
+                </span>
+                @endif
             </a>
-            @endif
 
-            {{-- Buat WO (untuk non-maintenance, bukan warehouse, bukan QA staff) --}}
-            @if (!$user->isMaintenanceStaff() && !$user->isWarehouseMtc() && !$user->isQaStaff())
-            <a href="{{ route('work-orders.create') }}"
-                class="{{ $navBase }} {{ request()->routeIs('work-orders.create') ? $navOn : $navOff }}">
+            {{-- Buat WO: popup di halaman yang sedang dibuka --}}
+            <a href="{{ route('work-orders.create') }}" id="nav-wo-create"
+                class="js-open-wo-create {{ $navBase }} {{ $navOff }}">
                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M12 4v16m8-8H4" />
                 </svg>
                 Buat Work Order
             </a>
-            @endif
 
             {{-- Warehouse (MTC staff / Section Head, including GA SH) --}}
             @if ($user->canActAsWarehouse())
@@ -265,6 +268,8 @@
     </div>
 
 </div>
+
+@include('work-orders._create-modal')
 
 <script>
     (function () {

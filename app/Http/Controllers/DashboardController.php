@@ -60,8 +60,10 @@ class DashboardController extends Controller
             $data['myFinished']  = WorkOrder::where('assigned_member_id', $user->id)->where('status', 'finished')->count();
             $data['overdue']     = WorkOrder::where('assigned_member_id', $user->id)->active()
                 ->where('deadline', '<', now())->whereNotNull('deadline')->count();
-            $data['myWos']       = WorkOrder::where('assigned_member_id', $user->id)
-                ->with('requester')->whereIn('status', ['assigned_member', 'rework'])->latest()->get();
+            $data['myWos']       = WorkOrder::where(fn ($q) => $q
+                    ->where('assigned_member_id', $user->id)
+                    ->orWhere('requester_id', $user->id))
+                ->with('requester')->whereIn('status', ['pending', 'assigned_member', 'rework', 'completed'])->latest()->get();
         }
 
         elseif ($user->isWarehouseMtc()) {
@@ -93,8 +95,10 @@ class DashboardController extends Controller
             $data['myFinished']  = WorkOrder::where('assigned_member_id', $user->id)->where('status', 'finished')->count();
             $data['overdue']     = WorkOrder::where('assigned_member_id', $user->id)->active()
                 ->where('deadline', '<', now())->whereNotNull('deadline')->count();
-            $data['myWos']       = WorkOrder::where('assigned_member_id', $user->id)
-                ->with('requester')->whereIn('status', ['assigned_member', 'rework'])->latest()->get();
+            $data['myWos']       = WorkOrder::where(fn ($q) => $q
+                    ->where('assigned_member_id', $user->id)
+                    ->orWhere('requester_id', $user->id))
+                ->with('requester')->whereIn('status', ['pending', 'assigned_member', 'rework', 'completed'])->latest()->get();
         }
 
         elseif ($user->isGaSectionHead()) {

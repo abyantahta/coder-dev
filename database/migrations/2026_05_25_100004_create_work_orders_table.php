@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('work_orders', function (Blueprint $table) {
             $table->id();
-            $table->string('wo_number', 20)->unique();
+            $table->string('wo_number', 32)->unique();
             $table->string('title');
             $table->text('description');
             $table->string('category')->nullable(); // mechanical, electrical, civil, general

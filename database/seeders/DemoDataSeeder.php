@@ -27,7 +27,7 @@ class DemoDataSeeder extends Seeder
 
     public function run(): void
     {
-        if (User::where('email', 'section.head@sankei.com')->exists()) {
+        if (User::where('email', 'deni@sankei.com')->exists()) {
             $this->command?->warn('Data demo user/WO sudah ada. Dilewati. Pakai `php artisan migrate:fresh --seed` jika ingin reset dari nol.');
             return;
         }
@@ -44,64 +44,80 @@ class DemoDataSeeder extends Seeder
         $groupB = MaintenanceGroup::create(['name' => 'Group B', 'unit_id' => $unitManufacturing->id]);
 
         // ── MTC Users ────────────────────────────────────────────────────────
-        User::create([
-            'name' => 'Deni Andriansa', 'email' => 'section.head@sankei.com',
+        $sectionHead = User::create([
+            'name' => 'Deni', 'email' => 'deni@sankei.com',
             'password' => Hash::make('password'), 'role' => 'section_head', 'department' => 'Maintenance',
             'department_id' => $this->mtc->id, 'dept_role_id' => $this->mtcRoles['section_head'],
         ]);
 
         $uhManufacturing = User::create([
-            'name' => 'Wawan Gianto', 'email' => 'unit.manufacturing@sankei.com',
+            'name' => 'Wawan', 'email' => 'wawan@sankei.com',
             'password' => Hash::make('password'), 'role' => 'unit_head',
             'department' => 'Maintenance', 'unit_id' => $unitManufacturing->id,
             'department_id' => $this->mtc->id, 'dept_role_id' => $this->mtcRoles['unit_head'],
         ]);
 
         $ghA = User::create([
-            'name' => 'M Rochmat', 'email' => 'group.a@sankei.com',
+            'name' => 'Rochmat', 'email' => 'rochmat@sankei.com',
             'password' => Hash::make('password'), 'role' => 'group_head',
             'department' => 'Maintenance', 'unit_id' => $unitManufacturing->id, 'group_id' => $groupA->id,
             'department_id' => $this->mtc->id, 'dept_role_id' => $this->mtcRoles['group_head'],
         ]);
 
         $ghB = User::create([
-            'name' => 'Aryo Setioko', 'email' => 'group.b@sankei.com',
+            'name' => 'Aryo', 'email' => 'aryo@sankei.com',
             'password' => Hash::make('password'), 'role' => 'group_head',
             'department' => 'Maintenance', 'unit_id' => $unitManufacturing->id, 'group_id' => $groupB->id,
             'department_id' => $this->mtc->id, 'dept_role_id' => $this->mtcRoles['group_head'],
         ]);
 
-        $memberBudi   = $this->mkMember('Budi',   'member.budi@sankei.com',   $unitManufacturing, $groupA);
-        $memberIrwan  = $this->mkMember('Irwan',  'member.irwan@sankei.com',  $unitManufacturing, $groupA);
-        $memberDika   = $this->mkMember('Dika',   'member.dika@sankei.com',   $unitManufacturing, $groupA);
-        $memberWisnu  = $this->mkMember('Wisnu',  'member.wisnu@sankei.com',  $unitManufacturing, $groupB);
-        $memberAskiya = $this->mkMember('Askiya', 'member.askiya@sankei.com', $unitManufacturing, $groupB);
+        $memberAskiya = $this->mkMember('Askiya', 'askiya@sankei.com', $unitManufacturing, $groupB);
+        $memberBudi   = $this->mkMember('Budi',   'budi@sankei.com',   $unitManufacturing, $groupA);
+        $memberPajar  = $this->mkMember('Pajar',  'pajar@sankei.com',  $unitManufacturing, $groupA);
+        $memberIrwan  = $this->mkMember('Irwan',  'irwan@sankei.com',  $unitManufacturing, $groupA);
+        $memberIwan   = $this->mkMember('Iwan',   'iwan@sankei.com',   $unitManufacturing, $groupB);
+        $memberWisnu  = $this->mkMember('Wisnu',  'wisnu@sankei.com',  $unitManufacturing, $groupB);
 
-        // ── Regular Users ────────────────────────────────────────────────────
-        $userProduksi = User::create(['name' => 'Sinta Dewi',   'email' => 'user.produksi@sankei.com', 'password' => Hash::make('password'), 'role' => 'user', 'department' => 'Produksi']);
-        $userQC       = User::create(['name' => 'Lina Marlina', 'email' => 'user.qc@sankei.com',       'password' => Hash::make('password'), 'role' => 'user', 'department' => 'QC']);
-        $userIT       = User::create(['name' => 'Wahyu Adi',    'email' => 'user.it@sankei.com',       'password' => Hash::make('password'), 'role' => 'user', 'department' => 'IT']);
-
-        // ── Warehouse MTC ────────────────────────────────────────────────────
-        $warehouse = User::create([
-            'name' => 'Nur Rahmad', 'email' => 'warehouse.mtc@sankei.com',
-            'password' => Hash::make('password'), 'role' => 'warehouse_mtc', 'department' => 'Warehouse MTC',
-            'department_id' => $this->mtc->id, 'dept_role_id' => $this->mtcRoles['warehouse_mtc'],
-        ]);
+        // Section Head also handles warehouse PR in demo data
+        $warehouse = $sectionHead;
 
         // ── QA Users ─────────────────────────────────────────────────────────
         User::create([
-            'name' => 'Maya Kusumawardhani', 'email' => 'qa.section@sankei.com',
+            'name' => 'Haekal', 'email' => 'haekal@sankei.com',
             'password' => Hash::make('password'), 'role' => 'qa_section_head', 'department' => 'QA',
             'department_id' => $this->qa->id, 'dept_role_id' => $this->qaRoles['section_head'],
         ]);
         $qaGH = User::create([
-            'name' => 'Retno Wulandari', 'email' => 'qa.gh@sankei.com',
+            'name' => 'Iqbal', 'email' => 'iqbal@sankei.com',
             'password' => Hash::make('password'), 'role' => 'qa_group_head', 'department' => 'QA',
             'department_id' => $this->qa->id, 'dept_role_id' => $this->qaRoles['group_head'],
         ]);
-        $qaMember1 = $this->mkQaMember('Dani Kurniawan', 'qa.member1@sankei.com');
-        $qaMember2 = $this->mkQaMember('Fitriani Sari',  'qa.member2@sankei.com');
+        $qaMember1 = $this->mkQaMember('Acil',  'acil@sankei.com');
+        $qaMember2 = $this->mkQaMember('Telur', 'telur@sankei.com');
+
+        // ── GA Users ─────────────────────────────────────────────────────────
+        $gaSectionHead = User::create([
+            'name' => 'Herlan', 'email' => 'herlan@sankei.com',
+            'password' => Hash::make('password'), 'role' => 'ga_section_head', 'department' => 'GA',
+            'department_id' => $this->ga->id, 'dept_role_id' => $this->gaRoles['section_head'],
+        ]);
+        $gaStaff1 = $this->mkGaStaff('Sarja', 'sarja@sankei.com');
+        $gaStaff2 = $gaStaff1;
+
+        // ── IT Superadmin ─────────────────────────────────────────────────────
+        $itAdmin = User::create([
+            'name'          => 'IT Admin',
+            'email'         => 'it@sankei-dharma.com',
+            'password'      => Hash::make('password'),
+            'role'          => 'section_head',
+            'department'    => 'IT',
+            'is_superadmin' => true,
+        ]);
+
+        // Requester demo: staf lintas dept (semua user bisa buat WO, termasuk ke dept sendiri)
+        $userProduksi = $memberBudi;
+        $userQC       = $qaMember1;
+        $userIT       = $itAdmin;
 
         // ── MTC Sample WOs ───────────────────────────────────────────────────
         $catProductivity = $this->mtcCats['Productivity'];
@@ -123,7 +139,7 @@ class DemoDataSeeder extends Seeder
 
         $this->finishedWO($userProduksi, 'Ganti Bearing Mesin Press',
             'Bearing mesin press unit 3 bunyi dan perlu diganti.', 'Mechanical', 'high',
-            $unitManufacturing, $groupA, $uhManufacturing, $ghA, $memberDika, 8, 6, 0, 100, $userProduksi, $catProductivity);
+            $unitManufacturing, $groupA, $uhManufacturing, $ghA, $memberPajar, 8, 6, 0, 100, $userProduksi, $catProductivity);
 
         $this->finishedWO($userQC, 'Perbaikan Sensor Suhu Oven',
             'Sensor suhu oven curing tidak akurat.', 'Electrical', 'medium',
@@ -174,7 +190,7 @@ class DemoDataSeeder extends Seeder
         $a10 = now()->subDays(6);
         $wo10->update([
             'status' => 'rework', 'unit_id' => $unitManufacturing->id,
-            'assigned_group_id' => $groupA->id, 'assigned_member_id' => $memberDika->id,
+            'assigned_group_id' => $groupA->id, 'assigned_member_id' => $memberPajar->id,
             'accepted_by' => $uhManufacturing->id, 'accepted_at' => $a10,
             'planned_start_at' => $a10, 'planned_end_at' => $a10->copy()->addDays(7),
             'actual_start_at' => $a10, 'actual_end_at' => null,
@@ -186,8 +202,8 @@ class DemoDataSeeder extends Seeder
         ]);
         $wo10->addHistory($userProduksi->id, 'created', 'WO dibuat.');
         $wo10->addHistory($uhManufacturing->id, 'accepted', 'Diterima.');
-        $wo10->addHistory($ghA->id, 'assigned_member', "Diassign ke {$memberDika->name}.");
-        $wo10->addHistory($memberDika->id, 'completed', 'Pekerjaan selesai.');
+        $wo10->addHistory($ghA->id, 'assigned_member', "Diassign ke {$memberPajar->name}.");
+        $wo10->addHistory($memberPajar->id, 'completed', 'Pekerjaan selesai.');
         $wo10->addHistory($userProduksi->id, 'rework', 'Masih ada rembesan, mohon dicek ulang.');
 
         // WO11: pending_parts
@@ -338,15 +354,6 @@ class DemoDataSeeder extends Seeder
         $this->finishedQaWO($userProduksi, 'Inspeksi Produk Ekspor Batch #20260201',   'Inspeksi kualitas produk batch ekspor.',            'high',   $qaGH, $qaMember2, 75,  4, 1, 80,  $userProduksi, $catInspeksi);
         $this->finishedQaWO($userIT,       'Review Prosedur Kalibrasi Lab Q4',         'Review prosedur kalibrasi triwulan 4.',             'low',    $qaGH, $qaMember1, 110, 3, 0, 90,  $userIT,       $catDokumentasi);
 
-        // ── GA Users ─────────────────────────────────────────────────────────
-        $gaSectionHead = User::create([
-            'name' => 'Rini Kartika', 'email' => 'ga.section@sankei.com',
-            'password' => Hash::make('password'), 'role' => 'ga_section_head', 'department' => 'GA',
-            'department_id' => $this->ga->id, 'dept_role_id' => $this->gaRoles['section_head'],
-        ]);
-        $gaStaff1 = $this->mkGaStaff('Bayu Firmansyah', 'ga.staff1@sankei.com');
-        $gaStaff2 = $this->mkGaStaff('Citra Ayu', 'ga.staff2@sankei.com');
-
         $catUmum      = $this->gaCats['Umum'];
         $catFasilitas = $this->gaCats['Fasilitas'];
 
@@ -453,16 +460,6 @@ class DemoDataSeeder extends Seeder
         // Historical finished GA WOs
         $this->finishedGaWO($userQC,       'Pengadaan Dispenser Air Kantor',    'Dispenser lama rusak, perlu penggantian.',     'low',    $gaStaff2, 30, 3, 0, 100, $userQC,       $gaSectionHead);
         $this->finishedGaWO($userProduksi, 'Perbaikan Atap Bocor Gudang B',     'Atap gudang B bocor saat hujan deras.',        'high',   $gaStaff1, 45, 5, 1, 80,  $userProduksi, $gaSectionHead);
-
-        // ── IT Superadmin ─────────────────────────────────────────────────────
-        User::create([
-            'name'          => 'IT Admin',
-            'email'         => 'it@sankei-dharma.com',
-            'password'      => Hash::make('password'),
-            'role'          => 'section_head',
-            'department'    => 'IT',
-            'is_superadmin' => true,
-        ]);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -524,7 +521,7 @@ class DemoDataSeeder extends Seeder
     private function makeWO(User $requester, string $title, string $desc, string $category, string $priority, WoCategory $cat): WorkOrder
     {
         return WorkOrder::create([
-            'wo_number'            => WorkOrder::generateWoNumber(),
+            'wo_number'            => WorkOrder::generateWoNumber($this->mtc),
             'title'                => $title, 'description' => $desc,
             'category'             => $category, 'priority' => $priority,
             'requester_id'         => $requester->id,
@@ -540,9 +537,7 @@ class DemoDataSeeder extends Seeder
     private function makeQaWO(User $requester, string $title, string $desc, string $priority, WoCategory $cat): WorkOrder
     {
         return WorkOrder::create([
-            'wo_number'            => WorkOrder::generateWoNumber(),
-            'title'                => $title, 'description' => $desc,
-            'category'             => 'inspection', 'priority' => $priority,
+            'wo_number'            => WorkOrder::generateWoNumber($this->qa),
             'requester_id'         => $requester->id,
             'destination'          => 'qa',
             'target_department_id' => $this->qa->id,
@@ -556,9 +551,7 @@ class DemoDataSeeder extends Seeder
     private function makeGaWO(User $requester, string $title, string $desc, string $priority, WoCategory $cat): WorkOrder
     {
         return WorkOrder::create([
-            'wo_number'            => WorkOrder::generateWoNumber(),
-            'title'                => $title, 'description' => $desc,
-            'category'             => 'general', 'priority' => $priority,
+            'wo_number'            => WorkOrder::generateWoNumber($this->ga),
             'requester_id'         => $requester->id,
             'destination'          => 'ga',
             'target_department_id' => $this->ga->id,

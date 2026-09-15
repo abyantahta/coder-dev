@@ -106,15 +106,31 @@ class WorkOrder extends Model
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    public static function generateWoNumber(): string
+    public static function generateWoNumber(Department|string|null $department = null): string
     {
-        $prefix = 'WO-' . now()->format('Ym') . '-';
+        $code = self::deptCode($department);
+        $prefix = 'WO-' . $code . '-' . now()->format('Ym') . '-';
         $last = static::where('wo_number', 'like', $prefix . '%')
             ->orderByDesc('wo_number')
             ->value('wo_number');
         $seq = $last ? ((int) substr($last, -4)) + 1 : 1;
 
         return $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
+    }
+
+    public static function deptCode(Department|string|null $department = null): string
+    {
+        if ($department instanceof Department) {
+            return strtoupper($department->code ?: 'MTC');
+        }
+
+        return match (strtolower((string) $department)) {
+            'maintenance', 'mtc' => 'MTC',
+            'ga' => 'GA',
+            'qa' => 'QA',
+            '' => 'MTC',
+            default => strtoupper($department),
+        };
     }
 
     public function addHistory(int $userId, string $action, string $description = ''): void
@@ -225,6 +241,141 @@ class WorkOrder extends Model
     public function scopePending($q)  { return $q->where('status', 'pending'); }
     public function scopeActive($q)   { return $q->whereNotIn('status', ['finished', 'cancelled', 'rejected', 'forwarded_ga', 'forwarded_qa', 'forwarded_maintenance']); }
     public function scopeFinished($q) { return $q->where('status', 'finished'); }
+
+    /** WO the user may see on /work-orders. */
+    public function scopeVisibleTo($q, User $user)
+    {
+        if ($user->isUnitHead()) {
+            return $q->where(fn ($inner) => $inner
+                ->where('destination', 'maintenance')
+                ->orWhere('requester_id', $user->id));
+        }
+
+        if ($user->isGroupHead()) {
+            return $q->where(fn ($inner) => $inner
+                ->where(fn ($q2) => $q2
+                    ->where('destination', 'maintenance')
+                    ->where('assigned_group_id', $user->group_id))
+                ->orWhere('requester_id', $user->id)
+                ->orWhere(fn ($q2) => $q2
+                    ->where('destination', 'maintenance')
+                    ->whereNotNull('assigned_group_id')
+                    ->where('assigned_group_id', '!=', $user->group_id)
+                    ->whereNotIn('status', ['pending', 'accepted', 'rejected', 'pending_parts', 'parts_ordered', 'parts_received'])));
+        }
+
+        if ($user->isSectionHead()) {
+            return $q->where(fn ($inner) => $inner
+                ->whereIn('destination', ['maintenance', 'qa', 'ga'])
+                ->orWhere('requester_id', $user->id));
+        }
+
+        if ($user->isMember() || $user->isQaMember()) {
+            return $q->where(fn ($inner) => $inner
+                ->where('assigned_member_id', $user->id)
+                ->orWhere('requester_id', $user->id));
+        }
+
+        if ($user->isWarehouseMtc()) {
+            return $q->where(fn ($inner) => $inner
+                ->where(fn ($q2) => $q2
+                    ->whereIn('status', ['pending_parts', 'parts_ordered', 'parts_received'])
+                    ->where('destination', 'maintenance'))
+                ->orWhere('requester_id', $user->id));
+        }
+
+        if ($user->isQaGroupHead() || $user->isQaSectionHead()) {
+            return $q->where(fn ($inner) => $inner
+                ->where('destination', 'qa')
+                ->orWhere('requester_id', $user->id));
+        }
+
+        if ($user->isGaSectionHead()) {
+            return $q->where(fn ($inner) => $inner
+                ->where('destination', 'ga')
+                ->orWhere('requester_id', $user->id));
+        }
+
+        return $q->where('requester_id', $user->id);
+    }
+
+    /**
+     * WO whose next action sits on this user's desk (matches ApprovalService::canAct
+     * plus warehouse queue). Closed / forwarded statuses are excluded.
+     */
+    public function scopeWaitingOn($q, User $user)
+    {
+        $closed = ['finished', 'cancelled', 'rejected', 'forwarded_ga', 'forwarded_qa', 'forwarded_maintenance'];
+
+        return $q->where(function ($outer) use ($user, $closed) {
+            $outer->where(function ($approval) use ($user, $closed) {
+                $approval->whereNotIn('status', array_merge($closed, ['pending_parts', 'parts_ordered']))
+                    ->whereNotNull('target_department_id')
+                    ->whereNotNull('current_step_order')
+                    ->whereExists(function ($sub) use ($user) {
+                        $sub->selectRaw('1')
+                            ->from('approval_steps')
+                            ->whereColumn('approval_steps.department_id', 'work_orders.target_department_id')
+                            ->whereColumn('approval_steps.step_order', 'work_orders.current_step_order')
+                            ->where(function ($step) use ($user) {
+                                $step->where(function ($s) use ($user) {
+                                    $s->where('approval_steps.step_type', 'requester_review')
+                                        ->where('work_orders.status', 'completed')
+                                        ->where('work_orders.requester_id', $user->id);
+                                })->orWhere(function ($s) use ($user) {
+                                    $s->where('approval_steps.step_type', 'completion')
+                                        ->whereIn('work_orders.status', ['assigned_member', 'parts_received', 'rework'])
+                                        ->where('work_orders.assigned_member_id', $user->id);
+                                })->orWhere(function ($s) use ($user) {
+                                    $s->where('approval_steps.step_type', 'material_check')
+                                        ->where('work_orders.status', 'assigned_member')
+                                        ->where('work_orders.assigned_member_id', $user->id);
+                                });
+
+                                if ($user->dept_role_id) {
+                                    $step->orWhere(function ($s) use ($user) {
+                                        $s->whereNotIn('approval_steps.step_type', ['requester_review', 'completion', 'material_check'])
+                                            ->whereNotNull('approval_steps.actor_role_id')
+                                            ->where('approval_steps.actor_role_id', $user->dept_role_id);
+                                    });
+                                }
+                            });
+                    });
+            });
+
+            if ($user->canActAsWarehouse() && $user->department_id) {
+                $outer->orWhere(function ($wh) use ($user) {
+                    $wh->whereIn('status', ['pending_parts', 'parts_ordered'])
+                        ->where('target_department_id', $user->department_id);
+                });
+            }
+        });
+    }
+
+    public function neededActionLabel(): string
+    {
+        if ($this->status === 'pending_parts') {
+            return 'Kelola pemesanan part';
+        }
+        if ($this->status === 'parts_ordered') {
+            return 'Konfirmasi barang tiba';
+        }
+
+        $step = $this->currentStep();
+        if (! $step) {
+            return 'Buka detail';
+        }
+
+        return match ($step->step_type) {
+            'standard'          => $step->action_label ?: 'Terima WO',
+            'spare_parts_check' => 'Cek sparepart',
+            'assign'            => $step->action_label ?: 'Assign',
+            'material_check'    => 'Cek material',
+            'completion'        => $this->status === 'rework' ? 'Selesaikan rework' : 'Tandai selesai',
+            'requester_review'  => 'Review hasil',
+            default             => $step->action_label ?: 'Proses',
+        };
+    }
 
     // ── Status metadata ───────────────────────────────────────────────────────
 
