@@ -280,8 +280,12 @@ XML;
 
     private function buildLineXml(int $lineNo, WoPartOrderLine $line, string $needDate, DepartmentQadConfig $config, ?string $rqmNbr = null): string
     {
-        $part = $this->esc($line->part_code ?? '');
-        $desc = $this->esc($line->description ?? '');
+        // Custom/manual lines have no QAD master code — QAD rqdPart cannot
+        // be blank ("Blank not allowed"), so reuse the item name.
+        $partRaw = trim((string) ($line->part_code ?: $line->description ?: ''));
+        $descRaw = trim((string) ($line->description ?: $line->part_code ?: ''));
+        $part = $this->esc(mb_substr($partRaw, 0, 18));
+        $desc = $this->esc(mb_substr($descRaw, 0, 24));
         $um = $this->esc($line->uom ?? '');
         $site = $this->esc($config->site_code);
         $rqmNbrTag = $rqmNbr ? '<rqmNbr>'.$this->esc($rqmNbr).'</rqmNbr>' : '';

@@ -8,6 +8,7 @@ use App\Models\WoPartOrder;
 use App\Models\WoPartOrderLine;
 use App\Models\WorkOrder;
 use App\Services\ApprovalService;
+use App\Services\Qad\QadItemService;
 use App\Services\Qad\QadRequisitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,21 +16,37 @@ use Illuminate\Support\Facades\DB;
 
 class WarehouseController extends Controller
 {
+    private function warehouseOrdersQuery()
+    {
+        $user = Auth::user();
+
+        return WoPartOrder::query()->whereHas('workOrder', function ($q) use ($user) {
+            $q->where('target_department_id', $user->department_id);
+        });
+    }
+
     public function index()
     {
         $user = Auth::user();
 
-        $pendingOrders = WoPartOrder::with(['workOrder.requester', 'workOrder.spareParts', 'requestedBy'])
+        $pendingOrders = $this->warehouseOrdersQuery()
+            ->with(['workOrder.requester', 'workOrder.spareParts', 'requestedBy', 'lines'])
             ->where('status', 'pending_warehouse')
             ->latest()
             ->get();
 
-        $activeOrders = WoPartOrder::with(['workOrder.requester', 'workOrder.spareParts', 'requestedBy', 'handledBy'])
+        $activeOrders = $this->warehouseOrdersQuery()
+            ->with(['workOrder.requester', 'workOrder.spareParts', 'requestedBy', 'handledBy', 'lines'])
             ->where('status', 'pr_created')
             ->latest()
             ->get();
 
-        $receivedOrders = WoPartOrder::with(['workOrder.requester', 'handledBy'])
+        $inProcessOrders = $pendingOrders->concat($activeOrders)
+            ->sortByDesc('created_at')
+            ->values();
+
+        $receivedOrders = $this->warehouseOrdersQuery()
+            ->with(['workOrder.requester', 'handledBy'])
             ->where('status', 'received')
             ->where('received_at', '>=', now()->subDays(30))
             ->latest('received_at')
@@ -44,7 +61,8 @@ class WarehouseController extends Controller
         ];
 
         // Average procurement days (last 90 days)
-        $avgDays = WoPartOrder::where('status', 'received')
+        $avgDays = $this->warehouseOrdersQuery()
+            ->where('status', 'received')
             ->whereNotNull('pr_date')
             ->whereNotNull('received_at')
             ->where('received_at', '>=', now()->subDays(90))
@@ -56,7 +74,8 @@ class WarehouseController extends Controller
         $stats['avg_procurement_days'] = $avgDays ? round($avgDays, 1) : null;
 
         // Monthly procurement trend (last 6 months)
-        $monthlyTrend = WoPartOrder::where('status', 'received')
+        $monthlyTrend = $this->warehouseOrdersQuery()
+            ->where('status', 'received')
             ->where('received_at', '>=', now()->subMonths(6))
             ->select(
                 DB::raw("DATE_FORMAT(received_at, '%Y-%m') as month"),
@@ -68,21 +87,23 @@ class WarehouseController extends Controller
             ->get();
 
         // Compliance rate: received within 30 days
-        $allReceived = WoPartOrder::where('status', 'received')->whereNotNull('pr_date')->whereNotNull('received_at')->get();
+        $allReceived = $this->warehouseOrdersQuery()
+            ->where('status', 'received')->whereNotNull('pr_date')->whereNotNull('received_at')->get();
         $onTime      = $allReceived->filter(fn ($o) => $o->procurement_days !== null && $o->procurement_days <= 30)->count();
         $stats['compliance_rate'] = $allReceived->count() > 0
             ? round(($onTime / $allReceived->count()) * 100, 1)
             : null;
 
         return view('warehouse.index', compact(
-            'pendingOrders', 'activeOrders', 'receivedOrders', 'stats', 'monthlyTrend'
+            'pendingOrders', 'activeOrders', 'receivedOrders', 'inProcessOrders', 'stats', 'monthlyTrend'
         ));
     }
 
     // Full historical list of every part order (not just pending/active/last-30-days)
     public function history(Request $request)
     {
-        $orders = WoPartOrder::with(['workOrder', 'requestedBy', 'handledBy'])
+        $orders = $this->warehouseOrdersQuery()
+            ->with(['workOrder', 'requestedBy', 'handledBy'])
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = $request->q;
                 $query->where(fn ($q) => $q
@@ -166,16 +187,15 @@ class WarehouseController extends Controller
     }
 
     // Show detail of a part order / WO procurement
-    public function showOrder(Request $request, WoPartOrder $partOrder)
+    public function showOrder(Request $request, WoPartOrder $partOrder, QadItemService $items)
     {
         $partOrder->load(['workOrder.requester', 'lines.qadItem', 'requestedBy', 'handledBy']);
         abort_unless($this->canManageOrder(Auth::user(), $partOrder->workOrder), 403);
 
-        $results = $request->filled('q')
-            ? QadItem::active()->search($request->q)->orderBy('description')->limit(30)->get()
-            : collect();
+        $results = $items->browse($request->q, 30);
+        $itemMasterCount = QadItem::active()->withoutExcludedProdLines()->count();
 
-        return view('warehouse.order', compact('partOrder', 'results'));
+        return view('warehouse.order', compact('partOrder', 'results', 'itemMasterCount'));
     }
 
     // Add a chosen QAD item (or a manually-typed one) as a PR line
@@ -208,10 +228,11 @@ class WarehouseController extends Controller
                 'is_custom'   => false,
             ];
         } else {
+            $name = trim((string) $request->description);
             $line += [
                 'qad_item_id' => null,
-                'part_code'   => null,
-                'description' => $request->description,
+                'part_code'   => $name,
+                'description' => $name,
                 'is_custom'   => true,
             ];
         }
@@ -235,14 +256,11 @@ class WarehouseController extends Controller
     }
 
     /**
-     * Dedicated warehouse staff can manage any order; a WO's own assigned
-     * staffer can manage their own order too (self-service PR flow, e.g.
-     * GA's material_check step).
+     * Warehouse MTC / MTC Section Head manage Maintenance orders;
+     * GA Section Head manages GA orders (same PR flow).
      */
     private function canManageOrder(User $user, WorkOrder $workOrder): bool
     {
-        return $user->isWarehouseMtc()
-            || $user->isSectionHead()
-            || $user->id === $workOrder->assigned_member_id;
+        return $user->managesWarehouseFor($workOrder);
     }
 }

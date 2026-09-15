@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +17,7 @@ class WorkOrder extends Model
         'forwarded_to', 'forward_reason',
         'unit_id', 'assigned_group_id', 'assigned_member_id', 'accepted_by',
         'accepted_at', 'assigned_group_at', 'scheduled_start_at', 'deadline', 'parts_ready_at',
+        'planned_start_at', 'planned_end_at', 'actual_start_at', 'actual_end_at',
         'completed_at',
         'rework_count', 'rework_requested_at', 'rework_deadline',
         'finished_at', 'score',
@@ -30,6 +32,10 @@ class WorkOrder extends Model
         'scheduled_start_at' => 'datetime',
         'deadline'           => 'datetime',
         'parts_ready_at'     => 'datetime',
+        'planned_start_at'   => 'datetime',
+        'planned_end_at'     => 'datetime',
+        'actual_start_at'    => 'datetime',
+        'actual_end_at'      => 'datetime',
         'completed_at'       => 'datetime',
         'rework_requested_at'=> 'datetime',
         'rework_deadline'    => 'datetime',
@@ -123,8 +129,73 @@ class WorkOrder extends Model
     public function isOverdue(): bool
     {
         return $this->deadline
-            && now()->isAfter($this->deadline)
+            && $this->clockAsOf()->isAfter($this->deadline)
             && ! in_array($this->status, ['finished', 'cancelled', 'rejected', 'forwarded_ga', 'forwarded_qa', 'forwarded_maintenance']);
+    }
+
+    /** Clock stops once the member marks the WO complete, waiting for requester review. */
+    public function isClockFrozen(): bool
+    {
+        return $this->status === 'completed';
+    }
+
+    public function clockAsOf(): Carbon
+    {
+        if ($this->isClockFrozen()) {
+            return $this->actual_end_at ?? $this->completed_at ?? now();
+        }
+
+        return now();
+    }
+
+    /** Snapshot original plan. Rework extra time extends `deadline` only, not the plan. */
+    public function planSnapshot(?Carbon $start, ?Carbon $end, bool $overwrite = false): array
+    {
+        if (! $end) {
+            return [];
+        }
+
+        $start ??= now();
+        $data = [];
+
+        if ($overwrite || ! $this->planned_end_at) {
+            $data['planned_start_at'] = $start;
+            $data['planned_end_at'] = $end;
+        }
+        if ($overwrite || ! $this->actual_start_at) {
+            $data['actual_start_at'] = $start;
+        }
+
+        return $data;
+    }
+
+    public function freezeActualEnd(?Carbon $at = null): array
+    {
+        $at ??= now();
+
+        return [
+            'completed_at'  => $at,
+            'actual_end_at' => $at,
+        ];
+    }
+
+    public function unfreezeForRework(): array
+    {
+        return [
+            'completed_at'  => null,
+            'actual_end_at' => null,
+        ];
+    }
+
+    public function clearPlan(): array
+    {
+        return [
+            'planned_start_at' => null,
+            'planned_end_at'   => null,
+            'actual_start_at'  => null,
+            'actual_end_at'    => null,
+            'completed_at'     => null,
+        ];
     }
 
     public function needsPartsCheck(): bool

@@ -74,15 +74,15 @@ class DepartmentSeeder extends Seeder
         // (start date/time + target selesai), unlike the plain group assign above.
         ApprovalStep::create([
             'department_id'      => $mtc->id, 'step_order' => 4,
-            'name'               => 'Assign ke Teknisi',
+            'name'               => 'Assign ke Member',
             'actor_role_id'      => $mtcGH->id,
             'step_type'          => 'assign',
             'can_assign'         => true,
             'requires_schedule'  => true,
             'assigns_to_role_key'=> 'member',
-            'action_label'       => 'Assign ke Teknisi',
+            'action_label'       => 'Assign ke Member',
         ]);
-        // Step 5: Teknisi marks completion
+        // Step 5: Member marks completion
         ApprovalStep::create([
             'department_id' => $mtc->id, 'step_order' => 5,
             'name'          => 'Penyelesaian Pekerjaan',
@@ -110,7 +110,7 @@ class DepartmentSeeder extends Seeder
             'description'        => 'Departemen General Affairs (placeholder)',
             'color'              => 'green',
             'is_active'          => true,
-            'has_warehouse'      => false,
+            'has_warehouse'      => true,
             'has_unit_structure' => false,
         ]);
 
@@ -136,11 +136,12 @@ class DepartmentSeeder extends Seeder
             'actor_role_id'      => $gaSH->id,
             'step_type'          => 'assign',
             'can_assign'         => true,
+            'requires_schedule'  => true,
             'assigns_to_role_key'=> 'staff',
             'action_label'       => 'Assign ke Staff GA',
         ]);
-        // Staff itself checks material availability; leadtime starts here
-        // (immediately if available, or once a self-ordered PR is received).
+        // Staff checks material. If missing, WO returns to Section Head who
+        // acts as warehouse; after parts arrive SH reschedules and re-assigns.
         ApprovalStep::create([
             'department_id' => $ga->id, 'step_order' => 3,
             'name'          => 'Pengecekan Material',

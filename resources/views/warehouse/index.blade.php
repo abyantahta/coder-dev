@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Warehouse MTC Dashboard')
-@section('page-title', 'Warehouse MTC — Dashboard')
+@section('title', auth()->user()->isGaSectionHead() ? 'Warehouse GA Dashboard' : 'Warehouse MTC Dashboard')
+@section('page-title', (auth()->user()->isGaSectionHead() ? 'Warehouse GA' : 'Warehouse MTC').' — Dashboard')
 
 @push('head')
 <script src="{{ asset('js/chart.umd.min.js') }}"></script>
@@ -87,7 +87,7 @@
 
                 <a href="{{ route('warehouse.orders.show', $order) }}"
                     class="inline-block bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition">
-                    Pilih Sparepart & Buat PR
+                    Pilih Item & Buat PR
                 </a>
             </div>
             @empty
@@ -161,7 +161,7 @@
 </div>
 
 {{-- Monthly Chart + Recently Received ─────────────────────────────────────── --}}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
     <div class="bg-white rounded-xl shadow-sm p-5">
         <h3 class="font-semibold text-slate-800 mb-4">Trend Pengadaan Bulanan (6 Bulan)</h3>
@@ -196,10 +196,136 @@
 
 </div>
 
+{{-- In-process warehouse items ────────────────────────────────────────────── --}}
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <div>
+            <h3 class="font-semibold text-slate-800">Dalam Proses Warehouse</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Klik baris untuk melihat barang yang dipesan pada WO tersebut.</p>
+        </div>
+        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{{ $inProcessOrders->count() }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    <th class="w-8 px-4 py-3"></th>
+                    <th class="px-4 py-3">No. WO</th>
+                    <th class="px-4 py-3">Judul</th>
+                    <th class="px-4 py-3">No. PR</th>
+                    <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3">Item</th>
+                    <th class="px-4 py-3">Tanggal</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                @forelse ($inProcessOrders as $order)
+                <tr id="wh-row-{{ $order->id }}"
+                    role="button"
+                    tabindex="0"
+                    aria-expanded="false"
+                    aria-controls="wh-lines-{{ $order->id }}"
+                    onclick="toggleWarehouseLines({{ $order->id }}, event)"
+                    onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggleWarehouseLines({{ $order->id }}, event); }"
+                    class="hover:bg-slate-50 cursor-pointer {{ $order->isOverdue() ? 'bg-red-50' : '' }}">
+                    <td class="px-4 py-3 text-slate-400">
+                        <svg id="wh-chevron-{{ $order->id }}" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </td>
+                    <td class="px-4 py-3">
+                        <a href="{{ route('work-orders.show', $order->workOrder) }}"
+                            class="text-blue-600 hover:underline font-medium">
+                            {{ $order->workOrder->wo_number }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-slate-800">{{ $order->workOrder->title }}</div>
+                        <div class="text-xs text-slate-400">{{ $order->workOrder->requester->name }} · {{ $order->workOrder->requester->department }}</div>
+                    </td>
+                    <td class="px-4 py-3 font-mono text-slate-700">{{ $order->pr_number ?: '—' }}</td>
+                    <td class="px-4 py-3">
+                        <span class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WoPartOrder::statusColor($order->status) }}">
+                            {{ \App\Models\WoPartOrder::statusLabel($order->status) }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">{{ $order->lines->count() }}</td>
+                    <td class="px-4 py-3 text-xs text-slate-500">
+                        @if ($order->status === 'pr_created')
+                        Est. {{ $order->expected_arrival?->format('d M Y') ?: '—' }}
+                        @if ($order->isOverdue()) <span class="text-red-600 font-semibold">OVERDUE</span> @endif
+                        @else
+                        Butuh {{ $order->need_date?->format('d M Y') ?: '—' }}
+                        @endif
+                    </td>
+                </tr>
+                <tr id="wh-lines-{{ $order->id }}" class="hidden bg-slate-50">
+                    <td colspan="7" class="px-4 py-3">
+                        <div class="ml-6 border border-slate-200 rounded-lg overflow-hidden bg-white">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                        <th class="px-3 py-2">Kode Item</th>
+                                        <th class="px-3 py-2">Nama Barang</th>
+                                        <th class="px-3 py-2">Qty</th>
+                                        <th class="px-3 py-2">Satuan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    @forelse ($order->lines as $line)
+                                    <tr>
+                                        <td class="px-3 py-2 font-mono text-xs text-slate-600">{{ $line->part_code ?: '—' }}</td>
+                                        <td class="px-3 py-2 text-slate-800">
+                                            {{ $line->description }}
+                                            @if ($line->is_custom)
+                                            <span class="text-xs text-slate-400">(manual)</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2 text-slate-700">{{ $line->quantity }}</td>
+                                        <td class="px-3 py-2 text-slate-500">{{ $line->uom }}</td>
+                                    </tr>
+                                    @empty
+                                    <tr>
+                                        <td colspan="4" class="px-3 py-4 text-center text-slate-400 text-xs">
+                                            Belum ada barang dipilih untuk WO ini.
+                                            @if ($order->status === 'pending_warehouse')
+                                            <a href="{{ route('warehouse.orders.show', $order) }}"
+                                                class="block mt-2 text-blue-600 hover:underline font-medium"
+                                                onclick="event.stopPropagation()">Pilih dari Master Data Item →</a>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="7" class="px-5 py-8 text-center text-slate-400">Tidak ada item yang sedang diproses warehouse.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
+function toggleWarehouseLines(id, event) {
+    if (event && event.target.closest('a, button')) return;
+    const child = document.getElementById('wh-lines-' + id);
+    const chevron = document.getElementById('wh-chevron-' + id);
+    const parent = document.getElementById('wh-row-' + id);
+    if (!child) return;
+    const isHidden = child.classList.toggle('hidden');
+    if (chevron) chevron.style.transform = isHidden ? '' : 'rotate(90deg)';
+    if (parent) parent.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
+}
+
 @if ($monthlyTrend->isNotEmpty())
 const months = {!! $monthlyTrend->pluck('month')->map(fn($m) => \Carbon\Carbon::parse($m)->format('M Y'))->toJson() !!};
 const totals  = {!! $monthlyTrend->pluck('total')->toJson() !!};

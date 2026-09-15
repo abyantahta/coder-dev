@@ -29,14 +29,14 @@ class QadItemService
      */
     public function browse(?string $term, int $limit = 30): Collection
     {
-        return QadItem::query()->active()->search($term)->orderBy('description')->limit($limit)->get();
+        return QadItem::query()->active()->withoutExcludedProdLines()->search($term)->orderBy('description')->limit($limit)->get();
     }
 
     /**
      * Pull the full item master from QAD (SDI_getItemMasterExt) and upsert
      * into qad_items. Connection details come from config/qad.php.
      *
-     * @return array{synced: int, created: int, updated: int}
+     * @return array{synced: int, created: int, updated: int, skipped: int, purged: int}
      */
     public function sync(): array
     {
@@ -56,6 +56,7 @@ class QadItemService
         $now = now();
         $created = 0;
         $updated = 0;
+        $skipped = 0;
         $batch = [];
 
         foreach ($rows as $row) {
@@ -69,12 +70,18 @@ class QadItemService
                 continue;
             }
 
+            $prodLine = $this->soap->sanitizeValue($row['t_pt_prod_line'] ?? null);
+            if (QadItem::isExcludedProdLine($prodLine)) {
+                $skipped++;
+                continue;
+            }
+
             $batch[] = [
                 'qad_code' => $code,
                 'description' => $this->soap->sanitizeValue($row['t_pt_desc1'] ?? null),
                 'part_number' => $this->soap->sanitizeValue($row['t_pt_desc2'] ?? null),
                 'qad_group' => $this->soap->sanitizeValue($row['t_pt_group'] ?? null),
-                'prod_line' => $this->soap->sanitizeValue($row['t_pt_prod_line'] ?? null),
+                'prod_line' => $prodLine,
                 'qad_status' => $this->soap->sanitizeValue($row['t_pt_status'] ?? null),
                 'location' => $this->soap->sanitizeValue($row['t_pt_location'] ?? null),
                 'is_active' => true,
@@ -99,7 +106,15 @@ class QadItemService
             $updated += $u;
         }
 
-        return ['synced' => $created + $updated, 'created' => $created, 'updated' => $updated];
+        $purged = QadItem::purgeExcludedProdLines();
+
+        return [
+            'synced' => $created + $updated,
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'purged' => $purged,
+        ];
     }
 
     /**

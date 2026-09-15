@@ -51,7 +51,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/work-orders/{workOrder}/check-parts', [WorkOrderController::class, 'checkParts'])->name('work-orders.check-parts');
 
     // Warehouse MTC — dedicated warehouse dashboard, role-gated
-    Route::middleware('role:warehouse_mtc,section_head')->prefix('warehouse')->name('warehouse.')->group(function () {
+    Route::middleware('role:warehouse_mtc,section_head,ga_section_head')->prefix('warehouse')->name('warehouse.')->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('index');
         Route::get('/history', [WarehouseController::class, 'history'])->name('history');
     });
@@ -69,7 +69,7 @@ Route::middleware('auth')->group(function () {
     });
 
     // Item Master Data (synced item catalog that Warehouse PR lines are built from)
-    Route::middleware('role:warehouse_mtc,section_head')->prefix('items')->name('items.')->group(function () {
+    Route::middleware('role:warehouse_mtc,section_head,ga_section_head')->prefix('items')->name('items.')->group(function () {
         Route::get('/', [ItemMasterController::class, 'index'])->name('index');
         Route::post('/sync', [ItemMasterController::class, 'sync'])->middleware('throttle:3,1')->name('sync');
     });

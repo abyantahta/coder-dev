@@ -14,4 +14,7 @@ return [
 
     'ssl_verify' => filter_var(env('QAD_SSL_VERIFY', env('APP_ENV') === 'production'), FILTER_VALIDATE_BOOL),
 
+    // Prod lines skipped when syncing the local item master (warehouse PR picker).
+    'excluded_prod_lines' => ['FG', 'RM', 'SA'],
+
 ];

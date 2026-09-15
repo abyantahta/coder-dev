@@ -78,15 +78,28 @@
                 <div><div class="text-xs text-slate-400 mb-0.5">Dikerjakan oleh</div>
                     <div class="text-sm font-medium text-slate-800">{{ $workOrder->assignedMember->name }}</div></div>
                 @endif
+                @if ($workOrder->scheduled_start_at)
+                <div><div class="text-xs text-slate-400 mb-0.5">Mulai Dikerjakan</div>
+                    <div class="text-sm font-medium text-slate-800">{{ $workOrder->scheduled_start_at->format('d M Y, H:i') }}</div></div>
+                @endif
                 @if ($workOrder->deadline)
                 <div><div class="text-xs text-slate-400 mb-0.5">Deadline</div>
                     <div class="text-sm font-medium {{ $workOrder->isOverdue() ? 'text-red-600' : 'text-slate-800' }}">
                         {{ $workOrder->deadline->format('d M Y, H:i') }}</div></div>
                 @if (!in_array($workOrder->status, ['finished', 'cancelled', 'rejected']))
                 <div class="col-span-2 -mt-1">
-                    <div class="text-xs text-slate-400 mb-0.5">Countdown</div>
+                    <div class="text-xs text-slate-400 mb-0.5">
+                        {{ $workOrder->isClockFrozen() ? 'Waktu terfreeze' : 'Countdown' }}
+                    </div>
                     <div id="countdown-timer" class="text-sm font-semibold"
-                         data-deadline="{{ $workOrder->deadline->toIso8601String() }}">—</div>
+                         data-deadline="{{ $workOrder->deadline->toIso8601String() }}"
+                         @if ($workOrder->isClockFrozen())
+                         data-frozen-at="{{ $workOrder->clockAsOf()->toIso8601String() }}"
+                         @endif
+                    >—</div>
+                    @if ($workOrder->isClockFrozen())
+                    <p class="text-xs text-slate-400 mt-0.5">Waktu berhenti saat member menandai selesai. Rework akan menjalankan hitungan lagi.</p>
+                    @endif
                 </div>
                 @endif
                 @endif
@@ -236,18 +249,20 @@
 
         {{-- ════ ACTION CARDS ════ --}}
 
-        {{-- Waiting for Warehouse --}}
+            {{-- Waiting for Warehouse --}}
         @if (in_array($workOrder->status, ['pending_parts', 'parts_ordered']))
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
             <h3 class="font-semibold text-amber-800 mb-1">Menunggu Sparepart</h3>
             <p class="text-sm text-amber-700">
                 @if ($workOrder->status === 'parts_ordered')
                     PR sudah dibuat. Menunggu barang tiba dari supplier.
+                @elseif ($workOrder->targetDepartment?->slug === 'ga')
+                    Material tidak tersedia. Section Head memproses pemesanan barang.
                 @else
                     Permintaan parts sedang diproses. Menunggu konfirmasi.
                 @endif
             </p>
-            @if ($workOrder->partOrder && ($user->id === $workOrder->assigned_member_id || $user->isWarehouseMtc() || $user->isSectionHead()))
+            @if ($workOrder->partOrder && $user->managesWarehouseFor($workOrder))
             <a href="{{ route('warehouse.orders.show', $workOrder->partOrder) }}"
                 class="inline-block mt-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
                 Kelola Pemesanan Part →
@@ -377,9 +392,10 @@
             <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="flex gap-3">
                 @csrf
                 <select name="group_id" required class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">— Pilih Group —</option>
+                    <option value="">— Pilih Group Head —</option>
                     @foreach ($assignableGroups as $group)
-                    <option value="{{ $group->id }}">{{ $group->name }}</option>
+                    @php $gh = $group->groupHead(); @endphp
+                    <option value="{{ $group->id }}">{{ $gh ? $gh->name : $group->name.' (belum ada Group Head)' }}</option>
                     @endforeach
                 </select>
                 <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
@@ -389,8 +405,14 @@
 
             {{-- ASSIGN ke MEMBER / STAFF --}}
             @elseif ($stepType === 'assign' && $currentStep->requires_schedule)
-            <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
+            <h3 class="font-semibold text-slate-800 mb-1">
+                {{ $workOrder->status === 'parts_received' ? 'Penjadwalan Ulang' : $currentStep->name }}
+            </h3>
+            @if ($workOrder->status === 'parts_received')
+            <p class="text-xs text-slate-500 mb-4">Material sudah diterima. Jadwalkan ulang pengerjaan lalu assign ke staff.</p>
+            @else
             <p class="text-xs text-slate-500 mb-4">Tentukan kapan pengerjaan dimulai dan target selesainya.</p>
+            @endif
             <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="space-y-4">
                 @csrf
                 <div>
@@ -399,22 +421,30 @@
                         class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">— Pilih {{ ucfirst(str_replace('_', ' ', $currentStep->assigns_to_role_key)) }} —</option>
                         @foreach ($assignableMembers as $m)
-                        <option value="{{ $m->id }}">{{ $m->name }}</option>
+                        <option value="{{ $m->id }}" {{ (int) old('member_id', $workOrder->assigned_member_id) === $m->id ? 'selected' : '' }}>{{ $m->name }}</option>
                         @endforeach
                     </select>
                 </div>
 
+                @php
+                    $schedStartDefault = old('scheduled_start_at', now()->format('Y-m-d\TH:i'));
+                    $schedStartCarbon = \Carbon\Carbon::parse($schedStartDefault);
+                    $schedEndDefault = old('deadline', ($workOrder->leadtime_days
+                        ? $schedStartCarbon->copy()->addDays($workOrder->leadtime_days)
+                        : $schedStartCarbon->copy()
+                    )->format('Y-m-d\TH:i'));
+                @endphp
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">Mulai Dikerjakan</label>
                         <input type="datetime-local" name="scheduled_start_at" id="sched-start" required
-                            value="{{ old('scheduled_start_at', now()->format('Y-m-d\TH:i')) }}"
+                            value="{{ $schedStartDefault }}"
                             class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-600 mb-1">Target Selesai</label>
-                        <input type="date" name="deadline" id="sched-end" required
-                            value="{{ old('deadline', $workOrder->leadtime_days ? now()->addDays($workOrder->leadtime_days)->format('Y-m-d') : '') }}"
+                        <input type="datetime-local" name="deadline" id="sched-end" required
+                            value="{{ $schedEndDefault }}"
                             class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
@@ -429,16 +459,40 @@
                     const start = document.getElementById('sched-start');
                     const end = document.getElementById('sched-end');
                     const hint = document.getElementById('sched-duration');
-                    function sync() {
-                        if (!start.value) return;
-                        end.min = start.value.slice(0, 10);
-                        if (!end.value) { hint.textContent = ''; return; }
-                        const days = Math.round((new Date(end.value) - new Date(start.value.slice(0, 10))) / 86400000);
-                        hint.textContent = days >= 0 ? `Durasi pengerjaan: ${days} hari` : 'Target selesai tidak boleh sebelum mulai.';
+
+                    function timePart(value) {
+                        return value && value.includes('T') ? value.split('T')[1] : '00:00';
                     }
-                    start.addEventListener('change', sync);
-                    end.addEventListener('change', sync);
-                    sync();
+
+                    function copyTimeFromStart() {
+                        if (!start.value) return;
+                        const time = timePart(start.value);
+                        const startDate = start.value.slice(0, 10);
+                        let endDate = end.value ? end.value.slice(0, 10) : '';
+                        if (!endDate || endDate < startDate) endDate = startDate;
+                        end.value = endDate + 'T' + time;
+                    }
+
+                    function updateHint() {
+                        end.min = start.value || '';
+                        if (!start.value || !end.value) { hint.textContent = ''; return; }
+                        const ms = new Date(end.value) - new Date(start.value);
+                        if (ms < 0) {
+                            hint.textContent = 'Target selesai tidak boleh sebelum mulai.';
+                            return;
+                        }
+                        const days = Math.floor(ms / 86400000);
+                        const hours = Math.round((ms % 86400000) / 3600000);
+                        if (days === 0) {
+                            hint.textContent = `Durasi pengerjaan: ${Math.max(1, Math.round(ms / 3600000))} jam`;
+                        } else {
+                            hint.textContent = `Durasi pengerjaan: ${days} hari` + (hours ? ` ${hours} jam` : '');
+                        }
+                    }
+
+                    start.addEventListener('change', () => { copyTimeFromStart(); updateHint(); });
+                    end.addEventListener('change', updateHint);
+                    updateHint();
                 })();
             </script>
 
@@ -461,10 +515,13 @@
                 </button>
             </form>
 
-            {{-- MATERIAL CHECK (assigned staff checks availability themselves) --}}
+            {{-- MATERIAL CHECK --}}
             @elseif ($stepType === 'material_check')
             <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
-            <p class="text-xs text-slate-500 mb-4">Leadtime pengerjaan mulai berjalan setelah material dipastikan tersedia.</p>
+            <p class="text-xs text-slate-500 mb-4">
+                Jika material tersedia, pengerjaan mengikuti jadwal yang sudah ditentukan.
+                Jika tidak, WO dikembalikan ke Section Head untuk pemesanan barang.
+            </p>
 
             <div class="flex gap-3 flex-wrap">
                 <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="flex-1 min-w-[160px]">
@@ -484,11 +541,11 @@
                   id="material-unavailable-form" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-4 mt-3">
                 @csrf
                 <input type="hidden" name="decision" value="unavailable">
-                <p class="text-sm font-medium text-red-700 mb-2">Catatan Pemesanan</p>
+                <p class="text-sm font-medium text-red-700 mb-2">Catatan untuk Section Head</p>
                 <textarea name="note" rows="3" required placeholder="Material apa yang perlu dipesan…"
                     class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-2"></textarea>
                 <button type="submit" class="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
-                    Pesan Material
+                    Kirim ke Section Head
                 </button>
             </form>
 
@@ -531,13 +588,15 @@
             @elseif ($stepType === 'requester_review')
             <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
             @if ($currentStep->auto_advance_hours && $workOrder->completed_at)
-            @php $autoAt = $workOrder->completed_at->addHours($currentStep->auto_advance_hours); @endphp
+            @php $autoAt = $workOrder->completed_at->copy()->addHours($currentStep->auto_advance_hours); @endphp
             <div class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
                 ⏱ Auto-confirm dalam <strong>{{ now()->diffForHumans($autoAt, true) }}</strong>
                 ({{ $autoAt->format('d M Y, H:i') }}) jika tidak direspons.
             </div>
             @endif
-            <p class="text-sm text-slate-500 mb-4">Periksa hasil pekerjaan. Setujui jika OK, atau minta rework.</p>
+            <p class="text-sm text-slate-500 mb-4">
+                Waktu pengerjaan sudah di-freeze. Setujui jika OK (waktu aktual tetap), atau minta rework (hitungan jalan lagi + waktu tambahan).
+            </p>
             <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="space-y-4">
                 @csrf
                 <textarea name="review_note" rows="3" placeholder="Catatan review (opsional)…"
@@ -614,6 +673,7 @@
     const el = document.getElementById('countdown-timer');
     if (!el) return;
     const deadline = new Date(el.dataset.deadline);
+    const frozenAt = el.dataset.frozenAt ? new Date(el.dataset.frozenAt) : null;
 
     function colorFor(diffMs) {
         if (diffMs <= 0) return '#dc2626';          // red-600
@@ -636,13 +696,14 @@
     }
 
     function update() {
-        const diff = deadline - Date.now();
+        const asOf = frozenAt || new Date();
+        const diff = deadline - asOf;
         el.style.color = colorFor(diff);
         el.textContent = fmt(diff);
     }
 
     update();
-    setInterval(update, 60000);
+    if (!frozenAt) setInterval(update, 60000);
 })();
 </script>
 @endpush

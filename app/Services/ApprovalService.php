@@ -23,7 +23,7 @@ class ApprovalService
         $step = $wo->currentStep();
         if (!$step || !$wo->target_department_id) return false;
 
-        // Blocked while warehouse is handling parts
+        // Blocked while warehouse is handling parts (Section Head acts via warehouse UI)
         if (in_array($wo->status, ['pending_parts', 'parts_ordered'])) return false;
 
         return match ($step->step_type) {
@@ -106,15 +106,39 @@ class ApprovalService
 
     public function onPartsReceived(WorkOrder $wo, User $actor): void
     {
+        $step = $wo->currentStep();
+
+        // GA-style: material check failed → Section Head ordered parts.
+        // After receiving, return to the previous assign step so SH can
+        // reschedule and assign to staff again (skip a second material check).
+        if ($step?->step_type === 'material_check') {
+            $assignStep = ApprovalStep::where('department_id', $wo->target_department_id)
+                ->where('step_type', 'assign')
+                ->where('step_order', '<', $step->step_order)
+                ->orderByDesc('step_order')
+                ->first();
+
+            $wo->update([
+                'status'             => 'parts_received',
+                'parts_ready_at'     => now(),
+                'deadline'           => null,
+                'scheduled_start_at' => null,
+                'current_step_order' => $assignStep?->step_order ?? $wo->current_step_order,
+                ...$wo->clearPlan(),
+            ]);
+            $wo->addHistory($actor->id, 'parts_received', 'Material diterima. Section Head menjadwalkan ulang dan assign ke staff.');
+
+            return;
+        }
+
         $next = $this->nextStep($wo);
+        $deadline = $wo->deadline ?? $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
         $wo->update([
             'status'             => 'parts_received',
             'parts_ready_at'     => now(),
-            // Deferred-leadtime flows (e.g. GA's material_check) never set a
-            // deadline at assign time — start it now that parts are in hand.
-            // No-op for flows that already set it (e.g. Maintenance).
-            'deadline'           => $wo->deadline ?? $this->addWorkingDays(now(), $wo->leadtime_days ?? 7),
+            'deadline'           => $deadline,
             'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+            ...$wo->planSnapshot($wo->scheduled_start_at ?? now(), $deadline),
         ]);
         $wo->addHistory($actor->id, 'parts_received', 'Sparepart diterima. Siap dilanjutkan.');
     }
@@ -184,10 +208,9 @@ class ApprovalService
     }
 
     /**
-     * The assigned staffer checks material availability themselves. If
-     * available, the leadtime starts now. If not, they order their own PR
-     * (self-service — see WarehouseController) and the leadtime starts once
-     * onPartsReceived() marks it received.
+     * Assigned staff checks material. If available, they work to the
+     * schedule already set at assign. If not, the WO returns to Section Head
+     * who acts as warehouse (same PR flow as Warehouse MTC).
      */
     private function handleMaterialCheck(WorkOrder $wo, User $actor, Request $request): void
     {
@@ -204,18 +227,30 @@ class ApprovalService
                 'request_note' => $request->note,
                 'status'       => 'pending_warehouse',
             ]);
-            $wo->update(['status' => 'pending_parts']);
-            $wo->addHistory($actor->id, 'pending_parts', 'Material tidak tersedia. Memesan PR sendiri.');
+            $wo->update([
+                'status'             => 'pending_parts',
+                'deadline'           => null,
+                'scheduled_start_at' => null,
+                ...$wo->clearPlan(),
+            ]);
+            $wo->addHistory($actor->id, 'pending_parts', 'Material tidak tersedia. Dikembalikan ke Section Head untuk pemesanan barang.');
+
             return;
         }
 
         $next     = $this->nextStep($wo);
-        $deadline = $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+        $start    = $wo->scheduled_start_at ?? now();
+        $deadline = $wo->deadline ?? $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
         $wo->update([
             'deadline'           => $deadline,
             'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+            ...$wo->planSnapshot($start, $deadline),
         ]);
-        $wo->addHistory($actor->id, 'material_checked', "Material tersedia. Leadtime dimulai. Deadline: {$deadline->format('d M Y')}.");
+
+        $schedule = $wo->scheduled_start_at
+            ? " Pengerjaan sesuai jadwal {$wo->scheduled_start_at->format('d M Y, H:i')} — {$deadline->format('d M Y, H:i')}."
+            : " Deadline: {$deadline->format('d M Y')}.";
+        $wo->addHistory($actor->id, 'material_checked', 'Material tersedia.'.$schedule);
     }
 
     private function handleAssign(WorkOrder $wo, User $actor, ApprovalStep $step, Request $request): void
@@ -239,6 +274,16 @@ class ApprovalService
         $request->validate(['member_id' => 'required|integer|exists:users,id']);
         $member = User::findOrFail($request->member_id);
 
+        $isReschedule = $wo->status === 'parts_received';
+        // After Section Head received material, skip a second material_check
+        // and send the staffer straight to completion.
+        if ($isReschedule && $next?->step_type === 'material_check') {
+            $next = ApprovalStep::where('department_id', $wo->target_department_id)
+                ->where('step_order', '>', $next->step_order)
+                ->orderBy('step_order')
+                ->first();
+        }
+
         // Some assign steps hand full scheduling control to the assigner
         // (start date/time + end date) instead of auto-computing the
         // deadline from leadtime_days — configurable per step so the same
@@ -258,10 +303,12 @@ class ApprovalService
                 'scheduled_start_at' => $scheduledStart,
                 'deadline'           => $deadline,
                 'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+                ...$wo->planSnapshot($scheduledStart, $deadline, $isReschedule),
             ]);
 
+            $verb = $isReschedule ? 'Penjadwalan ulang. Diassign' : 'Diassign';
             $wo->addHistory($actor->id, 'assigned_member',
-                "Diassign ke {$member->name}. Jadwal: {$scheduledStart->format('d M Y, H:i')} — {$deadline->format('d M Y')}.");
+                "{$verb} ke {$member->name}. Jadwal: {$scheduledStart->format('d M Y, H:i')} — {$deadline->format('d M Y, H:i')}.");
 
             return;
         }
@@ -278,6 +325,7 @@ class ApprovalService
             'assigned_member_id' => $member->id,
             'deadline'           => $deadline,
             'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+            ...$wo->planSnapshot(now(), $deadline, $isReschedule),
         ]);
 
         $wo->addHistory($actor->id, 'assigned_member', $deadline
@@ -290,9 +338,9 @@ class ApprovalService
         $next = $this->nextStep($wo);
         $data = [
             'status'             => 'completed',
-            'completed_at'       => now(),
             'completion_note'    => $request->completion_note ?: null,
             'current_step_order' => $next?->step_order ?? $wo->current_step_order,
+            ...$wo->freezeActualEnd(),
         ];
 
         if ($request->hasFile('completion_image')) {
@@ -303,7 +351,7 @@ class ApprovalService
         }
 
         $wo->update($data);
-        $wo->addHistory($actor->id, 'completed', 'Pekerjaan selesai. Menunggu review requester.');
+        $wo->addHistory($actor->id, 'completed', 'Pekerjaan selesai. Waktu pengerjaan di-freeze, menunggu review requester.');
     }
 
     private function handleRequesterReview(WorkOrder $wo, User $actor, Request $request): void
@@ -341,8 +389,10 @@ class ApprovalService
                 'rework_count'        => $reworkCount,
                 'rework_requested_at' => now(),
                 'rework_deadline'     => $reworkDeadline,
+                'deadline'            => $reworkDeadline,
                 'review_note'         => $request->review_note,
                 'current_step_order'  => $completionStep?->step_order ?? $wo->current_step_order,
+                ...$wo->unfreezeForRework(),
             ]);
             $wo->addHistory($actor->id, 'rework', "Rework #{$reworkCount} diminta (+{$additionalHours} jam). Deadline: {$reworkDeadline->format('d M Y, H:i')}.");
         }

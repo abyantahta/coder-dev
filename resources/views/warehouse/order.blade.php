@@ -36,7 +36,7 @@
     </div>
     @if ($partOrder->request_note)
     <div class="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2">
-        <span class="font-semibold">Catatan Unit Head:</span> {{ $partOrder->request_note }}
+        <span class="font-semibold">Catatan:</span> {{ $partOrder->request_note }}
     </div>
     @endif
 </div>
@@ -77,46 +77,77 @@
 
 @if ($partOrder->status === 'pending_warehouse')
 
-{{-- Search QAD catalog --}}
+{{-- Item master catalog --}}
 <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-    <h3 class="font-semibold text-slate-800 mb-3">Cari Sparepart QAD</h3>
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div>
+            <h3 class="font-semibold text-slate-800">Pilih dari Master Data Item</h3>
+            <p class="text-xs text-slate-500 mt-0.5">
+                {{ number_format($itemMasterCount) }} item aktif dari master QAD — dipakai untuk baris PR.
+            </p>
+        </div>
+        <a href="{{ route('items.index') }}"
+            class="text-sm text-blue-600 hover:text-blue-700 font-medium shrink-0">
+            Buka Master Data Item →
+        </a>
+    </div>
+
+    @if ($itemMasterCount === 0)
+    <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+        Master Data Item masih kosong. Buka
+        <a href="{{ route('items.index') }}" class="font-semibold underline">Master Data Item</a>
+        lalu klik <strong>Sync Sekarang</strong> agar katalog bisa dipilih di sini.
+    </div>
+    @else
     <form method="GET" action="{{ route('warehouse.orders.show', $partOrder) }}" class="flex gap-2 mb-4">
-        <input type="text" name="q" value="{{ request('q') }}" placeholder="Cari kode / nama part…"
+        <input type="text" name="q" value="{{ request('q') }}" placeholder="Cari kode / nama / part number…"
             class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold px-4 py-2 rounded-lg">
             Cari
         </button>
+        @if (request('q'))
+        <a href="{{ route('warehouse.orders.show', $partOrder) }}"
+            class="text-sm text-slate-500 hover:text-blue-600 px-3 py-2">Reset</a>
+        @endif
     </form>
 
-    @if (request('q'))
-        @forelse ($results as $item)
-        <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}"
-            class="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg px-3 py-2 mb-2">
-            @csrf
-            <input type="hidden" name="mode" value="catalog">
-            <input type="hidden" name="qad_item_id" value="{{ $item->id }}">
-            <div class="flex-1 min-w-[200px]">
-                <div class="text-sm font-medium text-slate-800">{{ $item->description ?: $item->qad_code }}</div>
-                <div class="text-xs text-slate-500 font-mono">{{ $item->qad_code }}</div>
+    @forelse ($results as $item)
+    <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}"
+        class="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg px-3 py-2 mb-2">
+        @csrf
+        <input type="hidden" name="mode" value="catalog">
+        <input type="hidden" name="qad_item_id" value="{{ $item->id }}">
+        <div class="flex-1 min-w-[200px]">
+            <div class="text-sm font-medium text-slate-800">{{ $item->description ?: $item->qad_code }}</div>
+            <div class="text-xs text-slate-500 font-mono">
+                {{ $item->qad_code }}
+                @if ($item->part_number) · {{ $item->part_number }} @endif
             </div>
-            <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
-                class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <input type="text" name="uom" required placeholder="UOM"
-                class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-                + Tambah
-            </button>
-        </form>
-        @empty
-        <p class="text-sm text-slate-400">Tidak ada item ditemukan untuk "{{ request('q') }}".</p>
-        @endforelse
+        </div>
+        <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
+            class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <input type="text" name="uom" required placeholder="UOM" value="EA"
+            class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+            + Tambah
+        </button>
+    </form>
+    @empty
+    <p class="text-sm text-slate-400">
+        @if (request('q'))
+            Tidak ada item master ditemukan untuk "{{ request('q') }}".
+        @else
+            Tidak ada item aktif di master data.
+        @endif
+    </p>
+    @endforelse
     @endif
 </div>
 
 {{-- Manual add --}}
 <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
     <h3 class="font-semibold text-slate-800 mb-1">Item Tidak Ditemukan? Tambah Manual</h3>
-    <p class="text-xs text-slate-500 mb-3">Untuk item yang belum ada di data master QAD.</p>
+    <p class="text-xs text-slate-500 mb-3">Untuk item yang belum ada di data master QAD. Item number di QAD akan diisi nama item (tidak boleh kosong).</p>
     <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}" class="flex flex-wrap items-end gap-2">
         @csrf
         <input type="hidden" name="mode" value="custom">
@@ -148,7 +179,7 @@
         @csrf
         <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Butuh Tanggal <span class="text-red-500">*</span></label>
-            <input type="date" name="need_date" required value="{{ old('need_date', optional($partOrder->need_date)->toDateString()) }}"
+            <input type="date" name="need_date" required value="{{ old('need_date', optional($partOrder->need_date)->toDateString() ?? now()->toDateString()) }}"
                 class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             <p class="text-xs text-slate-400 mt-1">Berlaku untuk seluruh item di PR ini (bukan per item).</p>
         </div>

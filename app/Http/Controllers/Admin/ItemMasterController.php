@@ -14,13 +14,14 @@ class ItemMasterController extends Controller
     public function index(Request $request)
     {
         $items = QadItem::query()
+            ->withoutExcludedProdLines()
             ->search($request->q)
             ->orderBy('description')
             ->paginate(25)
             ->withQueryString();
 
         $lastSyncedAt = QadItem::max('last_synced_at');
-        $totalItems = QadItem::count();
+        $totalItems = QadItem::withoutExcludedProdLines()->count();
         $syncStatus = Cache::get(SyncQadItemsJob::CACHE_KEY);
 
         return view('items.index', compact('items', 'lastSyncedAt', 'totalItems', 'syncStatus'));

@@ -52,15 +52,6 @@
                     <option value="">— Pilih departemen terlebih dahulu —</option>
                 </select>
                 @error('wo_category_id') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
-
-                {{-- Leadtime badge --}}
-                <div id="leadtime-info" class="mt-2 hidden">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-500">Leadtime:</span>
-                        <span id="leadtime-badge" class="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full"></span>
-                        <span id="category-desc" class="text-xs text-slate-500 italic"></span>
-                    </div>
-                </div>
             </div>
 
             {{-- Tipe Pekerjaan (Electrical/Mechanical) --}}
@@ -82,7 +73,7 @@
 
             {{-- Info notice --}}
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-                <strong>Info:</strong> Setelah WO dibuat, departemen yang dituju akan menerima dan menindaklanjuti sesuai leadtime kategori.
+                <strong>Info:</strong> Setelah WO dibuat, departemen yang dituju akan menerima dan menindaklanjuti.
                 Kamu akan bisa melakukan review ketika pekerjaan selesai.
             </div>
 
@@ -108,16 +99,12 @@ const oldCatId   = {{ old('wo_category_id', 'null') }};
 
 const deptSelect = document.getElementById('dept-select');
 const catSelect  = document.getElementById('category-select');
-const leadtimeInfo  = document.getElementById('leadtime-info');
-const leadtimeBadge = document.getElementById('leadtime-badge');
-const categoryDesc  = document.getElementById('category-desc');
 
 function updateCategories(deptId) {
     catSelect.innerHTML = '';
     if (!deptId || !categoriesByDept[deptId]) {
         catSelect.innerHTML = '<option value="">— Pilih departemen terlebih dahulu —</option>';
         catSelect.disabled = true;
-        leadtimeInfo.classList.add('hidden');
         return;
     }
 
@@ -127,30 +114,13 @@ function updateCategories(deptId) {
     cats.forEach(c => {
         const opt = document.createElement('option');
         opt.value = c.id;
-        opt.textContent = c.name + ' (' + c.leadtime_days + ' HK)';
-        opt.dataset.leadtime = c.leadtime_days;
-        opt.dataset.desc     = c.description || '';
+        opt.textContent = c.name;
         if (oldCatId && c.id == oldCatId) opt.selected = true;
         catSelect.appendChild(opt);
     });
-
-    updateLeadtime();
-}
-
-function updateLeadtime() {
-    const selected = catSelect.options[catSelect.selectedIndex];
-    if (selected && selected.dataset.leadtime) {
-        const days = selected.dataset.leadtime;
-        leadtimeBadge.textContent = days + ' Hari Kerja';
-        categoryDesc.textContent  = selected.dataset.desc;
-        leadtimeInfo.classList.remove('hidden');
-    } else {
-        leadtimeInfo.classList.add('hidden');
-    }
 }
 
 deptSelect.addEventListener('change', () => updateCategories(deptSelect.value));
-catSelect.addEventListener('change', updateLeadtime);
 
 // Restore old values on validation error
 if (oldDeptId) {

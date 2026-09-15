@@ -105,10 +105,8 @@ class WorkOrderController extends Controller
             ->get()
             ->groupBy('department_id')
             ->map(fn ($cats) => $cats->map(fn ($c) => [
-                'id'           => $c->id,
-                'name'         => $c->name,
-                'leadtime_days'=> $c->leadtime_days,
-                'description'  => $c->description,
+                'id'   => $c->id,
+                'name' => $c->name,
             ]));
 
         return view('work-orders.create', compact('departments', 'categoriesByDept'));
@@ -209,10 +207,7 @@ class WorkOrderController extends Controller
 
         $canEdit = $canAct || $canCancel
             || $workOrder->requester_id === $user->id
-            || ($user->isWarehouseMtc() && in_array($workOrder->status, ['pending_parts', 'parts_ordered', 'parts_received']))
-            // Self-service PR flow (e.g. GA's material_check): the WO's own
-            // assigned staffer manages their own order while it's in progress.
-            || ($user->id === $workOrder->assigned_member_id && in_array($workOrder->status, ['pending_parts', 'parts_ordered', 'parts_received']));
+            || ($user->managesWarehouseFor($workOrder) && in_array($workOrder->status, ['pending_parts', 'parts_ordered', 'parts_received']));
 
         // Assignable options for assign steps
         $assignableGroups  = collect();
@@ -221,10 +216,11 @@ class WorkOrderController extends Controller
 
         if ($canAct && $currentStep->step_type === 'assign') {
             if ($currentStep->assigns_to_role_key === 'group_head') {
-                $assignableGroups = MaintenanceGroup::when(
-                    $user->unit_id,
-                    fn ($q) => $q->where('unit_id', $user->unit_id)
-                )->get();
+                $assignableGroups = MaintenanceGroup::with(['users' => fn ($q) => $q->where('role', 'group_head')])
+                    ->when(
+                        $user->unit_id,
+                        fn ($q) => $q->where('unit_id', $user->unit_id)
+                    )->get();
             } else {
                 $assignableMembers = User::whereHas('deptRole', fn ($q) =>
                     $q->where('department_id', $workOrder->target_department_id)
@@ -237,10 +233,11 @@ class WorkOrderController extends Controller
         } elseif ($canAct && $currentStep->step_type === 'spare_parts_check') {
             // "Assign to GH" picks the group in the same step, so the group list
             // is needed here too (not just on the following 'assign' step).
-            $assignableGroups = MaintenanceGroup::when(
-                $user->unit_id,
-                fn ($q) => $q->where('unit_id', $user->unit_id)
-            )->get();
+            $assignableGroups = MaintenanceGroup::with(['users' => fn ($q) => $q->where('role', 'group_head')])
+                ->when(
+                    $user->unit_id,
+                    fn ($q) => $q->where('unit_id', $user->unit_id)
+                )->get();
         }
 
         if ($canAct && $currentStep?->can_forward) {
@@ -428,7 +425,10 @@ class WorkOrderController extends Controller
         abort_unless($workOrder->assigned_member_id === $user->id || $user->isSectionHead(), 403);
         abort_unless(in_array($workOrder->status, ['assigned_member', 'rework']), 422);
 
-        $workOrder->update(['status' => 'completed', 'completed_at' => now()]);
+        $workOrder->update([
+            'status' => 'completed',
+            ...$workOrder->freezeActualEnd(),
+        ]);
 
         $note = $workOrder->destination === 'qa'
             ? 'Pekerjaan selesai. Requester wajib konfirmasi dalam 2 hari (auto-confirm jika tidak direspons).'
@@ -461,12 +461,18 @@ class WorkOrderController extends Controller
             ]);
             $workOrder->addHistory($user->id, 'finished', "Pekerjaan disetujui. Skor: {$score}.");
         } else {
+            $reworkDeadline = ($workOrder->deadline && $workOrder->deadline->isFuture())
+                ? $workOrder->deadline->copy()->addHours(48)
+                : now()->addHours(48);
+
             $workOrder->update([
                 'status'              => 'rework',
                 'rework_count'        => $workOrder->rework_count + 1,
                 'rework_requested_at' => now(),
-                'rework_deadline'     => now()->addDays(2),
+                'rework_deadline'     => $reworkDeadline,
+                'deadline'            => $reworkDeadline,
                 'review_note'         => $request->review_note,
+                ...$workOrder->unfreezeForRework(),
             ]);
             $workOrder->addHistory($user->id, 'rework', 'Rework diminta: ' . $request->review_note);
         }

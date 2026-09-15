@@ -74,6 +74,19 @@ class User extends Authenticatable
     public function isQaSectionHead(): bool  { return $this->role === 'qa_section_head'; }
     public function isQaStaff(): bool        { return in_array($this->role, ['qa_group_head', 'qa_member', 'qa_section_head']); }
     public function isGaSectionHead(): bool  { return $this->role === 'ga_section_head'; }
+
+    /** Warehouse MTC, MTC Section Head, or GA Section Head (GA SH acts as warehouse). */
+    public function canActAsWarehouse(): bool
+    {
+        return $this->isWarehouseMtc() || $this->isSectionHead() || $this->isGaSectionHead();
+    }
+
+    public function managesWarehouseFor(WorkOrder $workOrder): bool
+    {
+        return $this->canActAsWarehouse()
+            && (int) $workOrder->target_department_id === (int) $this->department_id;
+    }
+
     public function isMaintenanceStaff(): bool
     {
         return in_array($this->role, ['section_head', 'unit_head', 'group_head', 'member']);

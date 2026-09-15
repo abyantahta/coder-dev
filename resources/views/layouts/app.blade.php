@@ -86,15 +86,15 @@
             </a>
             @endif
 
-            {{-- Warehouse MTC --}}
-            @if ($user->isWarehouseMtc() || $user->isSectionHead())
+            {{-- Warehouse (MTC staff / Section Head, including GA SH) --}}
+            @if ($user->canActAsWarehouse())
             <a href="{{ route('warehouse.index') }}"
                 class="{{ $navBase }} {{ request()->routeIs('warehouse.*') ? $navOn : $navOff }}">
                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                 </svg>
-                Warehouse MTC
+                {{ $user->isGaSectionHead() ? 'Warehouse GA' : 'Warehouse MTC' }}
             </a>
             <a href="{{ route('items.index') }}"
                 class="{{ $navBase }} {{ request()->routeIs('items.*') ? $navOn : $navOff }}">

@@ -27,6 +27,50 @@ class QadItem extends Model
         return $query->where('is_active', true);
     }
 
+    /** @return list<string> */
+    public static function excludedProdLines(): array
+    {
+        return array_values(array_filter(array_map(
+            static fn ($line) => strtoupper(trim((string) $line)),
+            config('qad.excluded_prod_lines', ['FG', 'RM', 'SA'])
+        )));
+    }
+
+    public static function isExcludedProdLine(?string $prodLine): bool
+    {
+        $normalized = strtoupper(trim((string) $prodLine));
+
+        return $normalized !== '' && in_array($normalized, self::excludedProdLines(), true);
+    }
+
+    public function scopeWithoutExcludedProdLines($query)
+    {
+        $lines = self::excludedProdLines();
+        if ($lines === []) {
+            return $query;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($lines), '?'));
+
+        return $query->where(function ($q) use ($placeholders, $lines) {
+            $q->whereNull('prod_line')
+                ->orWhere('prod_line', '')
+                ->orWhereRaw("UPPER(TRIM(prod_line)) NOT IN ({$placeholders})", $lines);
+        });
+    }
+
+    public static function purgeExcludedProdLines(): int
+    {
+        $lines = self::excludedProdLines();
+        if ($lines === []) {
+            return 0;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($lines), '?'));
+
+        return static::whereRaw("UPPER(TRIM(prod_line)) IN ({$placeholders})", $lines)->delete();
+    }
+
     public function scopeSearch($query, ?string $term)
     {
         if (blank($term)) {

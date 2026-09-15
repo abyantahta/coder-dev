@@ -140,6 +140,8 @@ class DemoDataSeeder extends Seeder
             'status' => 'assigned_member', 'unit_id' => $unitManufacturing->id,
             'assigned_group_id' => $groupA->id, 'assigned_member_id' => $memberIrwan->id,
             'accepted_by' => $uhManufacturing->id, 'accepted_at' => $a7, 'deadline' => $a7->copy()->addDays(7),
+            'planned_start_at' => $a7, 'planned_end_at' => $a7->copy()->addDays(7),
+            'actual_start_at' => $a7,
             'current_step_order' => 5,
         ]);
         $wo7->addHistory($userProduksi->id, 'created', 'WO dibuat.');
@@ -157,6 +159,8 @@ class DemoDataSeeder extends Seeder
             'status' => 'completed', 'unit_id' => $unitManufacturing->id,
             'assigned_group_id' => $groupB->id, 'assigned_member_id' => $memberWisnu->id,
             'accepted_by' => $uhManufacturing->id, 'accepted_at' => $a9, 'deadline' => $a9->copy()->addDays(7),
+            'planned_start_at' => $a9, 'planned_end_at' => $a9->copy()->addDays(7),
+            'actual_start_at' => $a9, 'actual_end_at' => now()->subHours(2),
             'completed_at' => now()->subHours(2),
             'current_step_order' => 6,
         ]);
@@ -171,8 +175,11 @@ class DemoDataSeeder extends Seeder
         $wo10->update([
             'status' => 'rework', 'unit_id' => $unitManufacturing->id,
             'assigned_group_id' => $groupA->id, 'assigned_member_id' => $memberDika->id,
-            'accepted_by' => $uhManufacturing->id, 'accepted_at' => $a10, 'deadline' => $a10->copy()->addDays(7),
-            'completed_at' => now()->subDays(1), 'rework_count' => 1,
+            'accepted_by' => $uhManufacturing->id, 'accepted_at' => $a10,
+            'planned_start_at' => $a10, 'planned_end_at' => $a10->copy()->addDays(7),
+            'actual_start_at' => $a10, 'actual_end_at' => null,
+            'deadline' => now()->addDays(2),
+            'rework_count' => 1,
             'rework_requested_at' => now()->subHours(12), 'rework_deadline' => now()->addDays(2),
             'review_note' => 'Masih ada rembesan, mohon dicek ulang.',
             'current_step_order' => 5,
@@ -284,7 +291,9 @@ class DemoDataSeeder extends Seeder
         $wo_qa6->update([
             'status' => 'assigned_member', 'accepted_by' => $qaGH->id,
             'accepted_at' => now()->subDays(1), 'assigned_member_id' => $qaMember2->id,
-            'deadline' => $deadline6, 'current_step_order' => 3,
+            'deadline' => $deadline6,
+            'planned_start_at' => now()->subDays(1), 'planned_end_at' => $deadline6,
+            'actual_start_at' => now()->subDays(1), 'current_step_order' => 3,
         ]);
         $wo_qa6->addHistory($userProduksi->id, 'created', 'WO dibuat.');
         $wo_qa6->addHistory($qaGH->id, 'accepted', 'WO diterima.');
@@ -296,6 +305,8 @@ class DemoDataSeeder extends Seeder
             'status' => 'completed', 'accepted_by' => $qaGH->id,
             'accepted_at' => now()->subDays(4), 'assigned_member_id' => $qaMember1->id,
             'deadline' => now()->subDays(1), 'completed_at' => now()->subHours(12),
+            'planned_start_at' => now()->subDays(4), 'planned_end_at' => now()->subDays(1),
+            'actual_start_at' => now()->subDays(4), 'actual_end_at' => now()->subHours(12),
             'current_step_order' => 4,
         ]);
         $wo_qa7->addHistory($userIT->id, 'created', 'WO dibuat.');
@@ -308,7 +319,9 @@ class DemoDataSeeder extends Seeder
         $wo_qa8->update([
             'status' => 'rework', 'accepted_by' => $qaGH->id,
             'accepted_at' => now()->subDays(5), 'assigned_member_id' => $qaMember2->id,
-            'deadline' => now()->addDay(), 'completed_at' => now()->subDays(1),
+            'planned_start_at' => now()->subDays(5), 'planned_end_at' => now()->addDay(),
+            'actual_start_at' => now()->subDays(5), 'actual_end_at' => null,
+            'deadline' => now()->addDays(2),
             'rework_count' => 1, 'rework_requested_at' => now()->subHours(6),
             'rework_deadline' => now()->addDays(2),
             'review_note' => 'Dokumentasi foto produk belum lengkap.',
@@ -347,16 +360,20 @@ class DemoDataSeeder extends Seeder
         $wo_ga2->addHistory($userQC->id, 'created', 'WO dibuat.');
         $wo_ga2->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
 
-        // GA-WO3: Assigned to staff — menunggu pengecekan material, leadtime belum mulai
+        // GA-WO3: Assigned to staff — menunggu pengecekan material (jadwal sudah ditentukan)
         $wo_ga3 = $this->makeGaWO($userIT, 'Pengadaan Meja Kerja Baru', 'Perlu 3 meja kerja baru untuk staff IT.', 'low', $catUmum);
+        $start3 = now()->addDay()->setTime(8, 0);
         $wo_ga3->update([
             'status' => 'assigned_member', 'accepted_by' => $gaSectionHead->id,
             'accepted_at' => now()->subDays(1), 'assigned_member_id' => $gaStaff1->id,
-            'deadline' => null, 'current_step_order' => 3,
+            'scheduled_start_at' => $start3, 'deadline' => $start3->copy()->addDays(3),
+            'planned_start_at' => $start3, 'planned_end_at' => $start3->copy()->addDays(3),
+            'actual_start_at' => $start3,
+            'current_step_order' => 3,
         ]);
         $wo_ga3->addHistory($userIT->id, 'created', 'WO dibuat.');
         $wo_ga3->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
-        $wo_ga3->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff1->name}. Leadtime akan mulai setelah pengecekan material.");
+        $wo_ga3->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff1->name}. Jadwal: {$start3->format('d M Y, H:i')} — {$wo_ga3->deadline->format('d M Y, H:i')}.");
 
         // GA-WO4: Material tersedia — leadtime sudah mulai, sedang dikerjakan
         $wo_ga4 = $this->makeGaWO($userProduksi, 'Perbaikan Pintu Gudang', 'Pintu gudang bahan baku macet.', 'medium', $catFasilitas);
@@ -365,7 +382,10 @@ class DemoDataSeeder extends Seeder
         $wo_ga4->update([
             'status' => 'assigned_member', 'accepted_by' => $gaSectionHead->id,
             'accepted_at' => $accepted4, 'assigned_member_id' => $gaStaff2->id,
-            'deadline' => $checked4->copy()->addDays(2), 'current_step_order' => 4,
+            'deadline' => $checked4->copy()->addDays(2),
+            'planned_start_at' => $checked4, 'planned_end_at' => $checked4->copy()->addDays(2),
+            'actual_start_at' => $checked4,
+            'current_step_order' => 4,
         ]);
         $wo_ga4->addHistory($userProduksi->id, 'created', 'WO dibuat.');
         $wo_ga4->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
@@ -387,19 +407,19 @@ class DemoDataSeeder extends Seeder
         $wo_ga5->addHistory($userQC->id, 'created', 'WO dibuat.');
         $wo_ga5->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
         $wo_ga5->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff1->name}. Leadtime akan mulai setelah pengecekan material.");
-        $wo_ga5->addHistory($gaStaff1->id, 'pending_parts', 'Material tidak tersedia. Memesan PR sendiri.');
+        $wo_ga5->addHistory($gaStaff1->id, 'pending_parts', 'Material tidak tersedia. Dikembalikan ke Section Head untuk pemesanan barang.');
 
-        // GA-WO6: Parts diterima sendiri oleh staff — leadtime baru mulai
+        // GA-WO6: Material diterima — Section Head menjadwalkan ulang
         $wo_ga6 = $this->makeGaWO($userIT, 'Pengadaan Kursi Kantor Ergonomis', 'Kursi kantor lama sudah rusak, perlu 5 unit baru.', 'medium', $catUmum);
         $accepted6 = now()->subDays(10);
         $received6 = now()->subHours(6);
         $wo_ga6->update([
             'status' => 'parts_received', 'accepted_by' => $gaSectionHead->id,
             'accepted_at' => $accepted6, 'assigned_member_id' => $gaStaff2->id,
-            'deadline' => $received6->copy()->addDays(3), 'current_step_order' => 4,
+            'deadline' => null, 'scheduled_start_at' => null, 'current_step_order' => 2,
         ]);
         WoPartOrder::create([
-            'wo_id' => $wo_ga6->id, 'requested_by' => $gaStaff2->id, 'handled_by' => $gaStaff2->id,
+            'wo_id' => $wo_ga6->id, 'requested_by' => $gaStaff2->id, 'handled_by' => $gaSectionHead->id,
             'pr_number' => 'PR-GA-2026-0001', 'status' => 'received',
             'request_note' => 'Kursi ergonomis 5 unit, belum ada stok.',
             'warehouse_note' => 'Barang sudah tiba dan diterima.',
@@ -410,8 +430,8 @@ class DemoDataSeeder extends Seeder
         $wo_ga6->addHistory($userIT->id, 'created', 'WO dibuat.');
         $wo_ga6->addHistory($gaSectionHead->id, 'accepted', 'WO diterima.');
         $wo_ga6->addHistory($gaSectionHead->id, 'assigned_member', "Diassign ke {$gaStaff2->name}. Leadtime akan mulai setelah pengecekan material.");
-        $wo_ga6->addHistory($gaStaff2->id, 'pending_parts', 'Material tidak tersedia. Memesan PR sendiri.');
-        $wo_ga6->addHistory($gaStaff2->id, 'parts_received', 'Sparepart diterima. Siap dilanjutkan.');
+        $wo_ga6->addHistory($gaStaff2->id, 'pending_parts', 'Material tidak tersedia. Dikembalikan ke Section Head untuk pemesanan barang.');
+        $wo_ga6->addHistory($gaSectionHead->id, 'parts_received', 'Material diterima. Section Head menjadwalkan ulang dan assign ke staff.');
 
         // GA-WO7: Selesai dikerjakan — menunggu review requester
         $wo_ga7 = $this->makeGaWO($userProduksi, 'Pembersihan Area Parkir', 'Area parkir karyawan perlu dibersihkan dan dicat ulang.', 'low', $catFasilitas);
@@ -420,6 +440,8 @@ class DemoDataSeeder extends Seeder
             'status' => 'completed', 'accepted_by' => $gaSectionHead->id,
             'accepted_at' => $accepted7, 'assigned_member_id' => $gaStaff1->id,
             'deadline' => $accepted7->copy()->addDays(3), 'completed_at' => now()->subHours(3),
+            'planned_start_at' => $accepted7, 'planned_end_at' => $accepted7->copy()->addDays(3),
+            'actual_start_at' => $accepted7, 'actual_end_at' => now()->subHours(3),
             'current_step_order' => 5,
         ]);
         $wo_ga7->addHistory($userProduksi->id, 'created', 'WO dibuat.');
@@ -558,7 +580,10 @@ class DemoDataSeeder extends Seeder
             'status' => 'finished', 'accepted_by' => $sectionHead?->id,
             'accepted_at' => $accepted, 'assigned_member_id' => $staff->id,
             'deadline' => $accepted->copy()->addDays(3),
+            'planned_start_at' => $accepted, 'planned_end_at' => $accepted->copy()->addDays(3),
+            'actual_start_at' => $accepted,
             'completed_at' => $accepted->copy()->addDays($completedDay),
+            'actual_end_at' => $accepted->copy()->addDays($completedDay),
             'finished_at' => $accepted->copy()->addDays($completedDay + 1),
             'rework_count' => $reworkCount, 'score' => $score,
             'current_step_order' => null,
@@ -588,7 +613,10 @@ class DemoDataSeeder extends Seeder
             'assigned_group_id' => $group->id, 'assigned_member_id' => $member->id,
             'accepted_by' => $uh->id, 'accepted_at' => $accepted,
             'deadline' => $accepted->copy()->addDays(7),
+            'planned_start_at' => $accepted, 'planned_end_at' => $accepted->copy()->addDays(7),
+            'actual_start_at' => $accepted,
             'completed_at' => $accepted->copy()->addDays($completedDay),
+            'actual_end_at' => $accepted->copy()->addDays($completedDay),
             'finished_at' => $accepted->copy()->addDays($completedDay + 1),
             'rework_count' => $reworkCount, 'score' => $score,
             'current_step_order' => null,
@@ -616,7 +644,10 @@ class DemoDataSeeder extends Seeder
             'status' => 'finished', 'accepted_by' => $qaGH->id, 'accepted_at' => $accepted,
             'assigned_member_id' => $member->id,
             'deadline' => $accepted->copy()->addDays(3),
+            'planned_start_at' => $accepted, 'planned_end_at' => $accepted->copy()->addDays(3),
+            'actual_start_at' => $accepted,
             'completed_at' => $accepted->copy()->addDays($completedDay),
+            'actual_end_at' => $accepted->copy()->addDays($completedDay),
             'finished_at' => $accepted->copy()->addDays($completedDay + 1),
             'rework_count' => $reworkCount, 'score' => $score,
             'current_step_order' => null,

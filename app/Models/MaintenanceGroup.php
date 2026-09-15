@@ -22,6 +22,10 @@ class MaintenanceGroup extends Model
 
     public function groupHead()
     {
+        if ($this->relationLoaded('users')) {
+            return $this->users->firstWhere('role', 'group_head');
+        }
+
         return $this->users()->where('role', 'group_head')->first();
     }
 

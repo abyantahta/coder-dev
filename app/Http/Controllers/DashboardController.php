@@ -97,6 +97,20 @@ class DashboardController extends Controller
                 ->with('requester')->whereIn('status', ['assigned_member', 'rework'])->latest()->get();
         }
 
+        elseif ($user->isGaSectionHead()) {
+            $data['pendingWo']   = WorkOrder::where('destination', 'ga')
+                ->whereIn('status', ['pending', 'forwarded_ga'])->count();
+            $data['activeWo']    = WorkOrder::where('destination', 'ga')->active()->count();
+            $data['finishedWo']  = WorkOrder::where('destination', 'ga')->where('status', 'finished')->count();
+            $data['needReview']  = WorkOrder::where('destination', 'ga')->where('status', 'completed')->count();
+            $data['overdueWos']  = WorkOrder::where('destination', 'ga')
+                ->active()->where('deadline', '<', now())->whereNotNull('deadline')->count();
+            $data['pendingParts'] = WorkOrder::where('destination', 'ga')
+                ->whereIn('status', ['pending_parts', 'parts_ordered'])->count();
+            $data['recentWos']   = WorkOrder::where('destination', 'ga')
+                ->with(['requester', 'assignedMember'])->latest()->limit(8)->get();
+        }
+
         else {
             // Regular user
             $data['myWos']       = WorkOrder::where('requester_id', $user->id)->with(['unit', 'assignedMember'])->latest()->get();

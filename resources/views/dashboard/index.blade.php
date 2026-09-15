@@ -465,6 +465,56 @@
     </div>
 </div>
 
+{{-- ────────── GA SECTION HEAD ────────── --}}
+@elseif ($user->isGaSectionHead())
+
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    @foreach ([
+        ['Pending GA', $pendingWo, 'bg-yellow-500'],
+        ['Aktif', $activeWo, 'bg-blue-600'],
+        ['Menunggu Material', $pendingParts, 'bg-amber-500'],
+        ['Selesai', $finishedWo, 'bg-green-600'],
+        ['Overdue', $overdueWos, 'bg-red-600'],
+    ] as [$label, $val, $color])
+    <div class="bg-white rounded-xl shadow-sm p-5 flex items-center gap-4">
+        <div class="w-12 h-12 {{ $color }} rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0">
+            {{ $val }}
+        </div>
+        <div class="text-sm font-semibold text-slate-800">{{ $label }}</div>
+    </div>
+    @endforeach
+</div>
+
+@if ($pendingParts > 0)
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-center gap-3">
+    <span class="text-sm text-amber-800 font-medium">Ada <strong>{{ $pendingParts }}</strong> WO yang menunggu pemesanan / penerimaan material.</span>
+    <a href="{{ route('warehouse.index') }}" class="ml-auto text-sm text-amber-700 font-semibold hover:underline">Buka Warehouse →</a>
+</div>
+@endif
+
+<div class="bg-white rounded-xl shadow-sm p-5">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-slate-800">WO GA Terbaru</h3>
+        <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+    </div>
+    <div class="space-y-2">
+        @forelse ($recentWos as $wo)
+        <a href="{{ route('work-orders.show', $wo) }}"
+            class="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition">
+            <div class="min-w-0">
+                <div class="text-sm font-semibold text-slate-800 truncate">{{ $wo->title }}</div>
+                <div class="text-xs text-slate-500">{{ $wo->wo_number }} · {{ $wo->requester->name }}</div>
+            </div>
+            <span class="ml-3 shrink-0 text-xs px-2 py-1 rounded-full {{ \App\Models\WorkOrder::statusColor($wo->status) }}">
+                {{ \App\Models\WorkOrder::statusLabel($wo->status) }}
+            </span>
+        </a>
+        @empty
+        <p class="text-sm text-slate-400 py-4 text-center">Belum ada WO GA.</p>
+        @endforelse
+    </div>
+</div>
+
 {{-- ────────── REGULAR USER ────────── --}}
 @else
 

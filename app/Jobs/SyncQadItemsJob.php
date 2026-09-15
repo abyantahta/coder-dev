@@ -42,7 +42,9 @@ class SyncQadItemsJob implements ShouldBeUnique, ShouldQueue
 
             Cache::put(self::CACHE_KEY, [
                 'status' => 'ok',
-                'message' => "Sync Item berhasil — {$result['synced']} diproses ({$result['created']} baru, {$result['updated']} diperbarui).",
+                'message' => "Sync Item berhasil — {$result['synced']} diproses ({$result['created']} baru, {$result['updated']} diperbarui"
+                    .(($result['skipped'] ?? 0) > 0 ? ", {$result['skipped']} dilewati karena prod line FG/RM/SA" : '')
+                    .').',
                 'started_at' => Cache::get(self::CACHE_KEY)['started_at'] ?? now()->toIso8601String(),
                 'finished_at' => now()->toIso8601String(),
                 'created' => $result['created'],

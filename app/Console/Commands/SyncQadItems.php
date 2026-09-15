@@ -25,10 +25,11 @@ class SyncQadItems extends Command
         }
 
         $this->line(sprintf(
-            'Done — %d synced (%d created, %d updated)',
+            'Done — %d synced (%d created, %d updated, %d skipped FG/RM/SA)',
             $result['synced'],
             $result['created'],
             $result['updated'],
+            $result['skipped'] ?? 0,
         ));
 
         return self::SUCCESS;

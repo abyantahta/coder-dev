@@ -34,7 +34,7 @@ return new class extends Migration
             // date/time + end date for the WO's leadtime instead of it
             // being auto-computed from leadtime_days at assign time. Lets
             // one department have both a plain assign (e.g. Unit Head ->
-            // Group Head) and a scheduled one (e.g. Group Head -> Teknisi).
+            // Group Head) and a scheduled one (e.g. Group Head -> Member).
             $table->boolean('requires_schedule')->default(false);
 
             // For assign steps: the role.key of the role being assigned to

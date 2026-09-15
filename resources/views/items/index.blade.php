@@ -19,7 +19,8 @@
         <div>
             <h2 class="font-semibold text-slate-800">Sinkronisasi Item QAD</h2>
             <p class="text-sm text-slate-500 mt-0.5">
-                {{ $totalItems }} item tersimpan.
+                {{ $totalItems }} item tersimpan — katalog ini dipakai saat membuat PR di Warehouse.
+                Item dengan Prod Line <span class="font-mono">FG</span>, <span class="font-mono">RM</span>, dan <span class="font-mono">SA</span> tidak ikut di-sync.
                 @if ($lastSyncedAt)
                     Terakhir sync {{ \Illuminate\Support\Carbon::parse($lastSyncedAt)->diffForHumans() }}
                     ({{ \Illuminate\Support\Carbon::parse($lastSyncedAt)->format('d M Y H:i') }}).
