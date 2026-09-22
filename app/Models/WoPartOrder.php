@@ -10,7 +10,7 @@ class WoPartOrder extends Model
 {
     protected $fillable = [
         'wo_id', 'requested_by', 'handled_by',
-        'pr_number', 'request_note', 'need_date', 'warehouse_note',
+        'pr_number', 'qad_po_no', 'qad_approval_status', 'request_note', 'need_date', 'warehouse_note',
         'status', 'pr_date', 'expected_arrival', 'received_at', 'qad_response',
     ];
 
@@ -38,7 +38,10 @@ class WoPartOrder extends Model
 
     public function lines(): HasMany
     {
-        return $this->hasMany(WoPartOrderLine::class);
+        // Explicit order — QAD line numbers (used both when creating the PR
+        // and when receiving against it) are positional, so this ordering
+        // must stay stable and match on both sides.
+        return $this->hasMany(WoPartOrderLine::class)->orderBy('id');
     }
 
     public function isOverdue(): bool
@@ -74,5 +77,36 @@ class WoPartOrder extends Model
             'received'          => 'tone-forest',
             default             => 'tone-neutral',
         };
+    }
+
+    /**
+     * QAD approval status. Primary signal is QAD's own ApprovalStatus code
+     * ('2' confirmed live = approved) from SDI_getPRtoPO_ — see
+     * App\Services\Qad\QadRequisitionService::findPurchaseOrder() and the
+     * qad:sync-po-numbers command. Falls back to "does a PO exist yet" for
+     * older rows synced before this field was captured.
+     */
+    public function isApprovedInQad(): bool
+    {
+        if ($this->qad_approval_status !== null) {
+            return $this->qad_approval_status === '2';
+        }
+
+        return ! empty($this->qad_po_no);
+    }
+
+    public function qadApprovalLabel(): string
+    {
+        if (! $this->pr_number) {
+            return 'Belum Dikirim ke QAD';
+        }
+
+        if (! $this->isApprovedInQad()) {
+            return 'Menunggu Approval';
+        }
+
+        return $this->qad_po_no
+            ? "Disetujui — PO {$this->qad_po_no}"
+            : 'Disetujui — menunggu No. PO';
     }
 }

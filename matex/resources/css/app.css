@@ -1,0 +1,115 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --matex-ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --matex-duration: 220ms;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-canvas font-sans text-ink antialiased;
+        font-feature-settings: 'ss01' on, 'kern' on;
+    }
+
+    ::selection {
+        @apply bg-brand-muted text-brand-deep;
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-family: Sora, 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+        @apply tracking-tight text-ink;
+    }
+
+    .font-display {
+        font-family: Sora, 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+    }
+}
+
+@layer components {
+    .ui-panel {
+        @apply rounded-panel border border-line bg-surface shadow-panel;
+        transition:
+            transform var(--matex-duration) var(--matex-ease),
+            box-shadow var(--matex-duration) var(--matex-ease),
+            border-color var(--matex-duration) var(--matex-ease);
+    }
+
+    .ui-panel-interactive:hover {
+        @apply border-brand-line shadow-lift;
+        transform: translateY(-2px);
+    }
+
+    .ui-page {
+        @apply w-full px-3 py-4 sm:px-4 lg:px-5;
+    }
+
+    .ui-section-title {
+        @apply font-display text-lg font-semibold text-ink sm:text-xl;
+    }
+
+    .ui-eyebrow {
+        @apply font-display text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-brand;
+    }
+
+    .ui-link {
+        @apply font-medium text-brand transition duration-220 ease-matex hover:text-brand-deep;
+    }
+
+    .ui-table-head {
+        @apply bg-canvas-soft text-left text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-ink-muted;
+    }
+
+    .ui-row {
+        @apply transition-colors duration-220 ease-matex hover:bg-canvas-soft/80;
+    }
+
+    .ui-tab {
+        @apply inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium transition duration-220 ease-matex;
+    }
+
+    .ui-tab-active {
+        @apply bg-brand text-white shadow-sm;
+    }
+
+    .ui-tab-idle {
+        @apply bg-surface text-ink-muted ring-1 ring-line hover:-translate-y-0.5 hover:text-ink hover:shadow-sm;
+    }
+}
+
+@layer utilities {
+    .no-spin::-webkit-outer-spin-button,
+    .no-spin::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    .no-spin[type='number'] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+
+    .pressable {
+        transition:
+            transform var(--matex-duration) var(--matex-ease),
+            box-shadow var(--matex-duration) var(--matex-ease),
+            background-color var(--matex-duration) var(--matex-ease),
+            border-color var(--matex-duration) var(--matex-ease),
+            color var(--matex-duration) var(--matex-ease);
+    }
+
+    .pressable:hover {
+        transform: translateY(-1px);
+    }
+
+    .pressable:active {
+        transform: translateY(0) scale(0.98);
+    }
+}

@@ -2,11 +2,11 @@
 
 return [
 
-    // Defaults are the real WSA endpoint values (same ones prodhourlyreport
-    // uses) — no .env entries are required for this to work.
-    'url' => env('QAD_URL', 'http://qadeesdi.site:25079/wsa/wsaprod'),
+    // Port 24079 + wsatest (not 25079/wsaprod) — url and namespace change
+    // together as a matched pair.
+    'url' => env('QAD_URL', 'http://qadeesdi.site:24079/wsa/wsatest'),
 
-    'ws_namespace' => env('QAD_WS_NAMESPACE', 'http://ws.imi.co.id/wsaprod'),
+    'ws_namespace' => env('QAD_WS_NAMESPACE', 'http://ws.imi.co.id/wsatest'),
 
     'domain' => env('QAD_DOMAIN', '7000'),
 

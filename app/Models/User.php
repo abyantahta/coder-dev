@@ -18,15 +18,17 @@ class User extends Authenticatable
         'name', 'email', 'password',
         'role', 'department', 'unit_id', 'group_id',
         'department_id', 'dept_role_id', 'is_superadmin',
+        'qad_username', 'qad_password',
     ];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'qad_password'];
 
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'qad_password' => 'encrypted',
         ];
     }
 
@@ -74,6 +76,17 @@ class User extends Authenticatable
     public function isQaSectionHead(): bool  { return $this->role === 'qa_section_head'; }
     public function isQaStaff(): bool        { return in_array($this->role, ['qa_group_head', 'qa_member', 'qa_section_head']); }
     public function isGaSectionHead(): bool  { return $this->role === 'ga_section_head'; }
+
+    /**
+     * Has their own QAD login on file — required for actions QAD demands a
+     * real named/authorized person for (receiving, SDI_eKanbanGR), as
+     * opposed to the shared service account PR creation uses. Without
+     * this, the user can only view receiving status, not execute it.
+     */
+    public function canReceiveInQad(): bool
+    {
+        return ! empty($this->qad_username) && ! empty($this->qad_password);
+    }
 
     /** Warehouse MTC, MTC Section Head, or GA Section Head (GA SH acts as warehouse). */
     public function canActAsWarehouse(): bool

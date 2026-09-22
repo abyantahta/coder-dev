@@ -28,6 +28,8 @@ class DemoDataSeeder extends Seeder
     public function run(): void
     {
         if (User::where('email', 'deni@sankei.com')->exists()) {
+            $this->loadDeptData();
+            $this->ensureWarehouseMtc();
             $this->command?->warn('Data demo user/WO sudah ada. Dilewati. Pakai `php artisan migrate:fresh --seed` jika ingin reset dari nol.');
             return;
         }
@@ -78,8 +80,7 @@ class DemoDataSeeder extends Seeder
         $memberIwan   = $this->mkMember('Iwan',   'iwan@sankei.com',   $unitManufacturing, $groupB);
         $memberWisnu  = $this->mkMember('Wisnu',  'wisnu@sankei.com',  $unitManufacturing, $groupB);
 
-        // Section Head also handles warehouse PR in demo data
-        $warehouse = $sectionHead;
+        $warehouse = $this->ensureWarehouseMtc();
 
         // ── QA Users ─────────────────────────────────────────────────────────
         User::create([
@@ -490,6 +491,21 @@ class DemoDataSeeder extends Seeder
         }
     }
 
+    private function ensureWarehouseMtc(): User
+    {
+        return User::firstOrCreate(
+            ['email' => 'asep@sankei.com'],
+            [
+                'name'          => 'Asep',
+                'password'      => Hash::make('password'),
+                'role'          => 'warehouse_mtc',
+                'department'    => 'Maintenance',
+                'department_id' => $this->mtc->id,
+                'dept_role_id'  => $this->mtcRoles['warehouse_mtc'],
+            ]
+        );
+    }
+
     private function mkMember(string $name, string $email, MaintenanceUnit $unit, MaintenanceGroup $group): User
     {
         return User::create([
@@ -538,6 +554,9 @@ class DemoDataSeeder extends Seeder
     {
         return WorkOrder::create([
             'wo_number'            => WorkOrder::generateWoNumber($this->qa),
+            'title'                => $title,
+            'description'          => $desc,
+            'priority'             => $priority,
             'requester_id'         => $requester->id,
             'destination'          => 'qa',
             'target_department_id' => $this->qa->id,
@@ -552,6 +571,9 @@ class DemoDataSeeder extends Seeder
     {
         return WorkOrder::create([
             'wo_number'            => WorkOrder::generateWoNumber($this->ga),
+            'title'                => $title,
+            'description'          => $desc,
+            'priority'             => $priority,
             'requester_id'         => $requester->id,
             'destination'          => 'ga',
             'target_department_id' => $this->ga->id,

@@ -36,6 +36,7 @@
                 <tr class="border-b border-slate-100 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
                     <th class="px-5 py-3">No. WO</th>
                     <th class="px-5 py-3">No. PR</th>
+                    <th class="px-5 py-3">Approval QAD</th>
                     <th class="px-5 py-3">Butuh Tanggal</th>
                     <th class="px-5 py-3">Status</th>
                     <th class="px-5 py-3">Diminta Oleh</th>
@@ -53,6 +54,16 @@
                         <div class="text-xs text-slate-400">{{ \Illuminate\Support\Str::limit($order->workOrder->title, 40) }}</div>
                     </td>
                     <td class="px-5 py-3 font-mono text-slate-700">{{ $order->pr_number ?: '—' }}</td>
+                    <td class="px-5 py-3">
+                        @if ($order->pr_number)
+                        <span class="inline-flex items-center gap-1.5 text-xs {{ $order->isApprovedInQad() ? 'text-green-700' : 'text-amber-700' }}">
+                            <span class="w-1.5 h-1.5 rounded-full {{ $order->isApprovedInQad() ? 'bg-green-500' : 'bg-amber-400' }}"></span>
+                            {{ $order->qadApprovalLabel() }}
+                        </span>
+                        @else
+                        <span class="text-xs text-slate-300">—</span>
+                        @endif
+                    </td>
                     <td class="px-5 py-3 text-slate-500">{{ $order->need_date?->format('d M Y') ?: '—' }}</td>
                     <td class="px-5 py-3">
                         <span class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WoPartOrder::statusColor($order->status) }}">
@@ -65,7 +76,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="px-5 py-8 text-center text-slate-400">
+                    <td colspan="8" class="px-5 py-8 text-center text-slate-400">
                         @if (request('q') || request('status'))
                             Tidak ada PR yang cocok dengan pencarian.
                         @else

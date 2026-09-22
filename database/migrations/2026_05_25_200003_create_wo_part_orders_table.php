@@ -13,7 +13,8 @@ return new class extends Migration
             $table->foreignId('wo_id')->constrained('work_orders')->onDelete('cascade');
             $table->foreignId('requested_by')->constrained('users');          // Unit Head
             $table->foreignId('handled_by')->nullable()->constrained('users'); // Warehouse-MTC
-            $table->string('pr_number')->nullable();   // QAD PR Number
+            $table->string('pr_number')->nullable();   // QAD requisition number (rqmNbr)
+            $table->string('qad_po_no')->nullable();   // filled once QAD converts the requisition to a PO — see qad:sync-po-numbers
             $table->text('request_note')->nullable();  // UH note about what's needed
             $table->date('need_date')->nullable();      // one need date for the whole PR batch, not per line
             $table->text('warehouse_note')->nullable();

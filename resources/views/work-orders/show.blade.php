@@ -203,6 +203,9 @@
                 @if ($po->pr_number)
                 <div><span class="text-slate-500">No. PR QAD:</span>
                     <span class="ml-2 font-mono font-semibold">{{ $po->pr_number }}</span></div>
+                <div><span class="text-slate-500">Approval QAD:</span>
+                    <span class="ml-2 font-medium {{ $po->isApprovedInQad() ? 'text-green-700' : 'text-amber-700' }}">
+                        {{ $po->qadApprovalLabel() }}</span></div>
                 @endif
                 @if ($po->pr_date)
                 <div><span class="text-slate-500">Tanggal PR:</span>

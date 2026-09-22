@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="CODER">
+  <defs>
+    <linearGradient id="coderPlate" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#1C222C"/>
+      <stop offset="0.55" stop-color="#12161C"/>
+      <stop offset="1" stop-color="#0B0E13"/>
+    </linearGradient>
+    <linearGradient id="coderFlame" x1="0.1" y1="0.05" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#F79A3D"/>
+      <stop offset="0.5" stop-color="#F2790B"/>
+      <stop offset="1" stop-color="#DC6908"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#coderPlate)"/>
+
+  <path d="M341.9 335.8 A139 139 0 1 1 341.9 176.2"
+        fill="none" stroke="url(#coderFlame)" stroke-width="66" stroke-linecap="round"/>
+
+  <circle cx="410" cy="256" r="45" fill="url(#coderFlame)"/>
+</svg>

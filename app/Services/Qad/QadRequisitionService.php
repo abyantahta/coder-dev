@@ -3,6 +3,7 @@
 namespace App\Services\Qad;
 
 use App\Models\DepartmentQadConfig;
+use App\Models\User;
 use App\Models\WoPartOrder;
 use App\Models\WoPartOrderLine;
 use Exception;
@@ -10,10 +11,12 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Creates a real Purchase Requisition in QAD (SOAP action SDI_CreatePR),
- * ported from a separate warehouse project's QadSoapService — trimmed to
- * just the "create/update requisition" path (approve/receive/PO-lookup
- * were dropped, not needed here).
+ * Manages a WoPartOrder's QAD lifecycle, ported from a separate warehouse
+ * project's QadSoapService — trimmed to just what this app needs:
+ * creating/updating the requisition (SDI_CreatePR, over the QXtend broker)
+ * and checking whether it has been approved and converted to a PO
+ * (SDI_getPRtoPO_, over the WSA broker — same connection as item master
+ * sync in config/qad.php). approve/receive were dropped, not needed here.
  */
 class QadRequisitionService
 {
@@ -25,7 +28,7 @@ class QadRequisitionService
 
     private int $timeout;
 
-    public function __construct()
+    public function __construct(private readonly QadSoapClient $wsa)
     {
         $this->url = config('services.qad_soap.url', '');
         $this->username = config('services.qad_soap.username', '');
@@ -118,6 +121,413 @@ class QadRequisitionService
 
             return ['success' => false, 'message' => $e->getMessage(), 'qad_req_no' => null];
         }
+    }
+
+    /**
+     * Check a requisition's approval status and, once it exists, its PO
+     * number (SDI_getPRtoPO_, over the WSA broker). ApprovalStatus is
+     * QAD's own field (confirmed live: '2' = approved) and is the direct
+     * signal — PONbr can still be useful on its own (and briefly echoes
+     * the requisition number itself while merely routed for purchasing,
+     * before a real PO exists, so that case is filtered out). Returns
+     * null when nothing is known yet (or on any lookup failure — this is
+     * a best-effort check, never blocks the PR itself).
+     *
+     * @return array{po_no: ?string, po_status: ?string, approval_status: ?string}|null
+     */
+    public function findPurchaseOrder(string $rqmNbr): ?array
+    {
+        $namespace = config('qad.ws_namespace');
+
+        if (blank($namespace)) {
+            return null;
+        }
+
+        $xml = $this->buildPrToPoXml($rqmNbr, $namespace);
+        $response = $this->wsa->call($xml);
+
+        if ($response['is_error']) {
+            Log::warning('QAD WSA findPurchaseOrder failed', ['rqmNbr' => $rqmNbr, 'message' => $response['message'] ?? null]);
+
+            return null;
+        }
+
+        $body = $response['raw'] ?? '';
+
+        if (! preg_match_all('/<ttPRtoPORow>(.*?)<\/ttPRtoPORow>/is', $body, $rows) || empty($rows[1])) {
+            return null;
+        }
+
+        // ApprovalStatus is per-requisition (same across all its lines) —
+        // the first row carries it regardless of whether a PO exists yet.
+        $approvalStatus = preg_match('/<ApprovalStatus>([^<]*)<\/ApprovalStatus>/i', $rows[1][0], $am)
+            ? trim($am[1])
+            : null;
+
+        $poNo = null;
+        $poStatus = null;
+
+        foreach ($rows[1] as $row) {
+            if (! preg_match('/<PONbr>([^<]+)<\/PONbr>/i', $row, $m)) {
+                continue;
+            }
+
+            $candidate = trim($m[1]);
+
+            if ($candidate !== '' && stripos($candidate, 'PO') === 0 && strcasecmp($candidate, $rqmNbr) !== 0) {
+                $poNo = $candidate;
+                $poStatus = preg_match('/<POStatus>([^<]*)<\/POStatus>/i', $row, $sm) ? trim($sm[1]) : null;
+                break;
+            }
+        }
+
+        if ($poNo === null && $approvalStatus === null) {
+            return null;
+        }
+
+        return ['po_no' => $poNo, 'po_status' => $poStatus, 'approval_status' => $approvalStatus];
+    }
+
+    /**
+     * Cumulative received quantity per requisition line, straight from
+     * QAD (same SDI_getPRtoPO_ call as findPurchaseOrder, different
+     * field) — used to validate a receipt actually posted, since QAD can
+     * reply success on receivePurchaseOrder() without the quantity
+     * actually moving. Returns [] on any lookup failure.
+     *
+     * @return array<int, float> requisition line number => qty received
+     */
+    public function getReceivedQtyByLine(string $rqmNbr): array
+    {
+        $namespace = config('qad.ws_namespace');
+
+        if (blank($namespace)) {
+            return [];
+        }
+
+        $xml = $this->buildPrToPoXml($rqmNbr, $namespace);
+        $response = $this->wsa->call($xml);
+
+        if ($response['is_error']) {
+            Log::warning('QAD WSA getReceivedQtyByLine failed', ['rqmNbr' => $rqmNbr, 'message' => $response['message'] ?? null]);
+
+            return [];
+        }
+
+        $body = $response['raw'] ?? '';
+
+        if (! preg_match_all('/<ttPRtoPORow>(.*?)<\/ttPRtoPORow>/is', $body, $rows)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($rows[1] as $row) {
+            if (! preg_match('/<ReqLine>([^<]+)<\/ReqLine>/i', $row, $lineM)) {
+                continue;
+            }
+            $line = (int) trim($lineM[1]);
+            $qty = preg_match('/<POQtyReceived>([^<]*)<\/POQtyReceived>/i', $row, $qtyM)
+                ? (float) trim($qtyM[1])
+                : 0.0;
+            $result[$line] = $qty;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Look up a PO's own line items directly by PO number (SDI_getActivePO2,
+     * WSA broker) — QAD has no operation keyed on PO number itself, so this
+     * browses "active" PO lines for a given month/year and filters for the
+     * one we want. Only lines still open show up this way; a line QAD
+     * considers fully received drops out of the "active" list entirely, so
+     * this is informational (what's really open in QAD right now) rather
+     * than a complete per-line history — getReceivedQtyByLine() (PR-keyed)
+     * remains the source of truth for validating our own receipts.
+     *
+     * @return array<int, array{part: string, qty_ord: float, qty_rcvd: float, um: string, due_date: ?string, status: string}>
+     */
+    public function findPurchaseOrderLines(string $poNumber, ?\DateTimeInterface $referenceDate = null): array
+    {
+        $namespace = config('qad.ws_namespace');
+
+        if (blank($namespace) || blank($poNumber)) {
+            return [];
+        }
+
+        $months = [$referenceDate ?? now()];
+        if (! $referenceDate || $referenceDate->format('Y-m') !== now()->format('Y-m')) {
+            $months[] = now();
+        }
+
+        foreach ($months as $when) {
+            $xml = $this->buildActivePO2Xml($when, $namespace);
+            $response = $this->wsa->call($xml);
+
+            if ($response['is_error']) {
+                Log::warning('QAD WSA findPurchaseOrderLines failed', ['po_no' => $poNumber, 'message' => $response['message'] ?? null]);
+
+                continue;
+            }
+
+            $lines = $this->parseActivePO2Rows($response['raw'] ?? '', $poNumber);
+
+            if (! empty($lines)) {
+                return $lines;
+            }
+        }
+
+        return [];
+    }
+
+    private function buildActivePO2Xml(\DateTimeInterface $when, string $namespace): string
+    {
+        $nsEsc = $this->esc($namespace);
+
+        return <<<XML
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsa="{$nsEsc}">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <wsa:SDI_getActivePO2>
+            <wsa:inpdomain>{$this->esc(config('qad.domain'))}</wsa:inpdomain>
+            <wsa:inpmonth>{$when->format('n')}</wsa:inpmonth>
+            <wsa:inpyear>{$when->format('Y')}</wsa:inpyear>
+        </wsa:SDI_getActivePO2>
+    </soapenv:Body>
+</soapenv:Envelope>
+XML;
+    }
+
+    private function parseActivePO2Rows(string $body, string $poNumber): array
+    {
+        if (! preg_match_all('/<tempRow>(.*?)<\/tempRow>/is', $body, $rows)) {
+            return [];
+        }
+
+        $result = [];
+
+        foreach ($rows[1] as $row) {
+            if (! preg_match('/<t_pod_nbr>([^<]*)<\/t_pod_nbr>/i', $row, $nbrM) || trim($nbrM[1]) !== $poNumber) {
+                continue;
+            }
+
+            $line = preg_match('/<t_pod_line>([^<]*)<\/t_pod_line>/i', $row, $m) ? (int) trim($m[1]) : 0;
+
+            $result[$line] = [
+                'part' => preg_match('/<t_pod_part>([^<]*)<\/t_pod_part>/i', $row, $m) ? trim($m[1]) : '',
+                'qty_ord' => preg_match('/<t_pod_qty_ord>([^<]*)<\/t_pod_qty_ord>/i', $row, $m) ? (float) trim($m[1]) : 0.0,
+                'qty_rcvd' => preg_match('/<t_pod_qty_rcvd>([^<]*)<\/t_pod_qty_rcvd>/i', $row, $m) ? (float) trim($m[1]) : 0.0,
+                'um' => preg_match('/<t_pod_um>([^<]*)<\/t_pod_um>/i', $row, $m) ? trim($m[1]) : '',
+                'due_date' => preg_match('/<t_pod_due_date>([^<]*)<\/t_pod_due_date>/i', $row, $m) ? trim($m[1]) : null,
+                'status' => preg_match('/<t_pod_status>([^<]*)<\/t_pod_status>/i', $row, $m) ? trim($m[1]) : '',
+            ];
+        }
+
+        ksort($result);
+
+        return $result;
+    }
+
+    /**
+     * Record a goods receipt against a QAD PO (SDI_eKanbanGR), over the
+     * same QXtend connection as createRequisition() — but authenticated as
+     * the receiving user themselves (QAD requires a real named/authorized
+     * person for this, unlike PR creation's shared service account), so
+     * $actor must have their own qad_username/qad_password on file (see
+     * User::canReceiveInQad()). $lines: list of ['line' => int, 'qty' => float].
+     *
+     * @return array{success: bool, message: string, raw_response?: string}
+     */
+    public function receivePurchaseOrder(WoPartOrder $order, array $lines, User $actor): array
+    {
+        if (blank($this->url)) {
+            return ['success' => false, 'message' => 'QAD SOAP belum dikonfigurasi'];
+        }
+        if (! $actor->canReceiveInQad()) {
+            return ['success' => false, 'message' => 'Kamu belum punya login QAD sendiri — hubungi admin untuk didaftarkan sebagai penerima barang.'];
+        }
+        if (blank($order->qad_po_no)) {
+            return ['success' => false, 'message' => 'Nomor PO QAD belum diisi.'];
+        }
+        if (empty($lines)) {
+            return ['success' => false, 'message' => 'Tidak ada baris item untuk diterima.'];
+        }
+
+        $order->loadMissing('workOrder');
+        $config = DepartmentQadConfig::where('department_id', $order->workOrder->target_department_id)->first();
+
+        if (! $config || ! $config->site_code || ! $config->location) {
+            return ['success' => false, 'message' => 'Konfigurasi QAD (site/location) untuk departemen ini belum diisi.'];
+        }
+
+        $xml = $this->buildReceivePurchaseOrderXml($order->qad_po_no, $lines, $config, $actor);
+
+        try {
+            $response = Http::withBody($xml, 'text/xml; charset=utf-8')
+                ->withHeaders(['SOAPAction' => ''])
+                ->timeout($this->timeout)
+                ->post($this->url);
+
+            $body = $response->body();
+
+            if (! $response->successful()) {
+                Log::error('QAD SOAP receivePurchaseOrder HTTP error', ['status' => $response->status(), 'body' => $body]);
+
+                return ['success' => false, 'message' => "QAD HTTP error: {$response->status()}", 'raw_response' => $body];
+            }
+
+            if (stripos($body, '<soapenv:Fault') !== false || stripos($body, ':Fault>') !== false) {
+                Log::error('QAD SOAP receivePurchaseOrder Fault', ['body' => $body]);
+
+                return ['success' => false, 'message' => 'QAD mengembalikan SOAP Fault — cek raw response.', 'raw_response' => $body];
+            }
+
+            $result = $this->extractResult($body);
+            $warnings = $this->extractWarnings($body);
+
+            if ($result === 'error') {
+                Log::error('QAD SOAP receivePurchaseOrder error result', ['body' => $body]);
+
+                return ['success' => false, 'message' => $warnings ?: 'QAD mengembalikan status error.', 'raw_response' => $body];
+            }
+
+            $message = $result === 'warning' && $warnings
+                ? "Penerimaan PO tercatat dengan catatan: {$warnings}"
+                : 'Penerimaan PO berhasil dicatat di QAD.';
+
+            Log::info('QAD SOAP receivePurchaseOrder response', [
+                'po_no' => $order->qad_po_no, 'actor_id' => $actor->id, 'lines' => $lines, 'result' => $result, 'warnings' => $warnings,
+            ]);
+
+            return ['success' => true, 'message' => $message, 'raw_response' => $body];
+        } catch (Exception $e) {
+            Log::error('QAD SOAP receivePurchaseOrder exception: '.$e->getMessage());
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    private function buildReceivePurchaseOrderXml(string $poNumber, array $lines, DepartmentQadConfig $config, User $actor): string
+    {
+        $poEsc = $this->esc($poNumber);
+        $today = now()->format('Y-m-d');
+        $siteEsc = $this->esc($config->site_code);
+        $locationEsc = $this->esc($config->location);
+
+        $lineXml = '';
+        foreach ($lines as $line) {
+            $lineNo = (int) $line['line'];
+            $qtyEsc = $this->esc((string) $line['qty']);
+            $lineXml .= <<<XML
+
+                        <lineDetail>
+                            <line>{$lineNo}</line>
+                            <lotserialQty>{$qtyEsc}</lotserialQty>
+                            <site>{$siteEsc}</site>
+                            <location>{$locationEsc}</location>
+                            <multiEntry>false</multiEntry>
+                        </lineDetail>
+            XML;
+        }
+
+        return <<<XML
+<soapenv:Envelope xmlns="urn:schemas-qad-com:xml-services" xmlns:qcom="urn:schemas-qad-com:xml-services:common" xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsa="http://www.w3.org/2005/08/addressing">
+    <soapenv:Header>
+        <wsa:Action/>
+        <wsa:To>urn:services-qad-com:SDI_eKanbanGR</wsa:To>
+        <wsa:MessageID>urn:services-qad-com::SDI_eKanbanGR</wsa:MessageID>
+        <wsa:ReferenceParameters>
+            <qcom:suppressResponseDetail>false</qcom:suppressResponseDetail>
+        </wsa:ReferenceParameters>
+        <wsa:ReplyTo>
+            <wsa:Address>urn:services-qad-com:</wsa:Address>
+        </wsa:ReplyTo>
+    </soapenv:Header>
+    <soapenv:Body>
+        <receivePurchaseOrder>
+            <qcom:dsSessionContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>domain</qcom:propertyName>
+                    <qcom:propertyValue>7000</qcom:propertyValue>
+                </qcom:ttContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>receiver</qcom:propertyName>
+                    <qcom:propertyValue>SDI_eKanbanGR</qcom:propertyValue>
+                </qcom:ttContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>scopeTransaction</qcom:propertyName>
+                    <qcom:propertyValue>false</qcom:propertyValue>
+                </qcom:ttContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>version</qcom:propertyName>
+                    <qcom:propertyValue>ERP3_3</qcom:propertyValue>
+                </qcom:ttContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>mnemonicsRaw</qcom:propertyName>
+                    <qcom:propertyValue>false</qcom:propertyValue>
+                </qcom:ttContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>username</qcom:propertyName>
+                    <qcom:propertyValue>{$this->esc($actor->qad_username)}</qcom:propertyValue>
+                </qcom:ttContext>
+                <qcom:ttContext>
+                    <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
+                    <qcom:propertyName>password</qcom:propertyName>
+                    <qcom:propertyValue>{$this->esc($actor->qad_password)}</qcom:propertyValue>
+                </qcom:ttContext>
+            </qcom:dsSessionContext>
+            <dsPurchaseOrderReceive>
+                <purchaseOrderReceive>
+                    <ordernum>{$poEsc}</ordernum>
+                    <effDate>{$today}</effDate>
+                    <fillAll>false</fillAll>
+                    <move>true</move>{$lineXml}
+                    <yn>true</yn>
+                    <yn1>true</yn1>
+                </purchaseOrderReceive>
+            </dsPurchaseOrderReceive>
+        </receivePurchaseOrder>
+    </soapenv:Body>
+</soapenv:Envelope>
+XML;
+    }
+
+    private function buildPrToPoXml(string $rqmNbr, string $namespace): string
+    {
+        $nsEsc = $this->esc($namespace);
+        $reqEsc = $this->esc($rqmNbr);
+
+        // Date filter is required by this WSA operation and is AND'd
+        // against ipReqNbr (not OR'd) — send a wide range so the
+        // requisition is found regardless of its actual need_date.
+        $from = now()->subYears(2);
+        $to = now()->addYear();
+
+        return <<<XML
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsa="{$nsEsc}">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <wsa:SDI_getPRtoPO_>
+            <wsa:ipDomain>{$this->esc(config('qad.domain'))}</wsa:ipDomain>
+            <wsa:ipReqNbr>{$reqEsc}</wsa:ipReqNbr>
+            <wsa:ipMonthFrom>{$from->month}</wsa:ipMonthFrom>
+            <wsa:ipDayFrom>{$from->day}</wsa:ipDayFrom>
+            <wsa:ipYearFrom>{$from->year}</wsa:ipYearFrom>
+            <wsa:ipMonthTo>{$to->month}</wsa:ipMonthTo>
+            <wsa:ipDayTo>{$to->day}</wsa:ipDayTo>
+            <wsa:ipYearTo>{$to->year}</wsa:ipYearTo>
+            <wsa:ipPOStatus>ALL</wsa:ipPOStatus>
+            <wsa:ipMaxRows>10</wsa:ipMaxRows>
+        </wsa:SDI_getPRtoPO_>
+    </soapenv:Body>
+</soapenv:Envelope>
+XML;
     }
 
     private function extractResult(string $body): ?string

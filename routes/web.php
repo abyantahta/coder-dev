@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('warehouse')->name('warehouse.')->group(function () {
         Route::post('/work-orders/{workOrder}/create-pr', [WarehouseController::class, 'createPr'])->name('create-pr');
         Route::post('/orders/{partOrder}/receive', [WarehouseController::class, 'receive'])->name('receive');
+        Route::post('/orders/{partOrder}/check-po', [WarehouseController::class, 'checkPo'])->middleware('throttle:10,1')->name('orders.check-po');
         Route::get('/orders/{partOrder}', [WarehouseController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{partOrder}/lines', [WarehouseController::class, 'addLine'])->name('orders.add-line');
         Route::delete('/orders/{partOrder}/lines/{line}', [WarehouseController::class, 'removeLine'])->name('orders.remove-line');

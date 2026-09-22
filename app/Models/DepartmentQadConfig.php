@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DepartmentQadConfig extends Model
 {
     protected $fillable = [
-        'department_id', 'site_code', 'buyer_code', 'approver_code', 'end_user_id', 'requester_userid',
+        'department_id', 'site_code', 'location', 'buyer_code', 'approver_code', 'end_user_id', 'requester_userid',
     ];
 
     public function department(): BelongsTo
