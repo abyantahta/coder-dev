@@ -29,7 +29,6 @@
     $user = auth()->user();
     $navBase   = 'nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition';
     $navOn     = 'nav-item-active bg-ember text-white shadow-sm';
-    $navOnInk  = 'nav-item-active bg-ink text-white shadow-sm';
     $navOff    = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
     $navLabel  = 'px-3 pt-5 pb-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-[0.09em]';
 @endphp
@@ -89,24 +88,40 @@
                 Buat Work Order
             </a>
 
-            {{-- Warehouse (MTC staff / Section Head, including GA SH) --}}
+            {{-- Warehouse (MTC staff / Section Head, including GA SH) — submenu --}}
             @if ($user->canActAsWarehouse())
-            <a href="{{ route('warehouse.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('warehouse.*') ? $navOn : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
-                {{ $user->isGaSectionHead() ? 'Warehouse GA' : 'Warehouse MTC' }}
-            </a>
-            <a href="{{ route('items.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('items.*') ? $navOn : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
-                Master Data Item
-            </a>
+            <details class="group" {{ request()->routeIs('warehouse.*') ? 'open' : '' }}>
+                <summary class="{{ $navBase }} {{ request()->routeIs('warehouse.*') ? $navOn : $navOff }} cursor-pointer list-none flex items-center justify-between">
+                    <span class="flex items-center gap-3">
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        {{ $user->isGaSectionHead() ? 'Warehouse GA' : 'Warehouse MTC' }}
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </summary>
+                <div class="mt-1 ml-8 space-y-0.5">
+                    <a href="{{ route('warehouse.index') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('warehouse.index') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Dashboard
+                    </a>
+                    <a href="{{ route('warehouse.pr-po-history') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('warehouse.pr-po-history') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        PR / PO / Receiving
+                    </a>
+                    <a href="{{ route('warehouse.history') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('warehouse.history') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Riwayat PR
+                    </a>
+                    <a href="{{ route('warehouse.standalone.create') }}"
+                        class="js-open-standalone-create block px-3 py-1.5 rounded-lg text-sm text-slate-500 hover:text-slate-800 hover:bg-slate-50">
+                        + Buat PR Mandiri
+                    </a>
+                </div>
+            </details>
             @endif
 
             {{-- QA nav --}}
@@ -148,48 +163,58 @@
             </a>
             @endif
 
-            {{-- Super Admin (IT Superadmin only) --}}
-            @if ($user->isSuperAdmin())
-            <div class="{{ $navLabel }}">Super Admin</div>
-            <a href="{{ route('superadmin.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('superadmin.index') ? $navOnInk : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Departments
-            </a>
-            <a href="{{ route('superadmin.users.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('superadmin.users.*') ? $navOnInk : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                Semua Users
-            </a>
-            @endif
-
-            {{-- Admin (Section Head MTC / QA) --}}
-            @if ($user->isSectionHead() || $user->isQaSectionHead())
-            <div class="{{ $navLabel }}">Admin</div>
-            <a href="{{ route('admin.users.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('admin.users.*') ? $navOn : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                Manajemen User
-            </a>
-            @endif
-            @if ($user->isSectionHead())
-            <a href="{{ route('admin.units.index') }}"
-                class="{{ $navBase }} {{ request()->routeIs('admin.units.*') ? $navOn : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                Unit & Group
-            </a>
+            {{-- Master Data — consolidated reference/config data (item
+                 catalog, departments, users, unit & group), each sub-link
+                 still gated by its own existing permission check. --}}
+            @php
+                $masterDataRoutes = ['items.*', 'superadmin.index', 'superadmin.users.*', 'admin.users.*', 'admin.units.*'];
+                $showMasterData = $user->canActAsWarehouse() || $user->isSuperAdmin() || $user->isSectionHead() || $user->isQaSectionHead();
+            @endphp
+            @if ($showMasterData)
+            <details class="group" {{ request()->routeIs($masterDataRoutes) ? 'open' : '' }}>
+                <summary class="{{ $navBase }} {{ request()->routeIs($masterDataRoutes) ? $navOn : $navOff }} cursor-pointer list-none flex items-center justify-between">
+                    <span class="flex items-center gap-3">
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3m-16 0c0 1.657 3.582 3 8 3s8-1.343 8-3m-16 0v10c0 1.657 3.582 3 8 3s8-1.343 8-3V7m-16 5c0 1.657 3.582 3 8 3s8-1.343 8-3" />
+                        </svg>
+                        Master Data
+                    </span>
+                    <svg class="w-4 h-4 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </summary>
+                <div class="mt-1 ml-8 space-y-0.5">
+                    @if ($user->canActAsWarehouse())
+                    <a href="{{ route('items.index') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('items.*') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Item
+                    </a>
+                    @endif
+                    @if ($user->isSuperAdmin())
+                    <a href="{{ route('superadmin.index') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('superadmin.index') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Departments
+                    </a>
+                    <a href="{{ route('superadmin.users.index') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('superadmin.users.*') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Users
+                    </a>
+                    @endif
+                    @if ($user->isSectionHead() || $user->isQaSectionHead())
+                    <a href="{{ route('admin.users.index') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('admin.users.*') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Users
+                    </a>
+                    @endif
+                    @if ($user->isSectionHead())
+                    <a href="{{ route('admin.units.index') }}"
+                        class="block px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('admin.units.*') ? 'font-medium text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50' }}">
+                        Unit & Group
+                    </a>
+                    @endif
+                </div>
+            </details>
             @endif
 
         </nav>
@@ -270,6 +295,17 @@
 </div>
 
 @include('work-orders._create-modal')
+@if ($user->canActAsWarehouse())
+@include('warehouse._standalone-create-modal')
+@endif
+
+<div id="gloading-bar" aria-hidden="true"></div>
+<div id="gloading-overlay" role="status" aria-live="polite" aria-hidden="true">
+    <div id="gloading-card">
+        <div id="gloading-ring"></div>
+        <span id="gloading-text">Memproses…</span>
+    </div>
+</div>
 
 <script>
     (function () {
@@ -279,6 +315,112 @@
             var hidden = document.documentElement.classList.toggle('sb-hidden');
             try { localStorage.setItem('sidebar-hidden', hidden ? '1' : '0'); } catch (e) {}
         });
+    })();
+</script>
+
+<script>
+    // Global "something's happening" indicator: a top progress bar + a
+    // blocking overlay, shown on every real form submit and same-page link
+    // click across the app. Since almost every action here is a full page
+    // reload (no SPA), this is the one place that needs to cover all of it —
+    // add data-no-loading to a form/link to opt it out.
+    (function () {
+        var bar = document.getElementById('gloading-bar');
+        var overlay = document.getElementById('gloading-overlay');
+        if (!bar || !overlay) return;
+
+        var shown = false;
+        var safetyTimer = null;
+        var barTimers = [];
+
+        function clearBarTimers() {
+            barTimers.forEach(clearTimeout);
+            barTimers = [];
+        }
+
+        function show(label) {
+            if (shown) return;
+            shown = true;
+            document.getElementById('gloading-text').textContent = label || 'Memproses…';
+            overlay.classList.add('is-active');
+            overlay.setAttribute('aria-hidden', 'false');
+            bar.classList.add('is-active');
+            bar.style.width = '0%';
+            clearBarTimers();
+            // Quick early progress, then ease off — the real completion is
+            // the next page load, which we can't measure, so this just
+            // reads as "still working" rather than claiming to be exact.
+            barTimers.push(setTimeout(function () { bar.style.width = '35%'; }, 30));
+            barTimers.push(setTimeout(function () { bar.style.width = '65%'; }, 350));
+            barTimers.push(setTimeout(function () { bar.style.width = '85%'; }, 1200));
+            // Never trap the user behind the overlay if navigation stalls.
+            safetyTimer = setTimeout(hide, 25000);
+        }
+
+        function hide() {
+            if (!shown) return;
+            shown = false;
+            clearTimeout(safetyTimer);
+            clearBarTimers();
+            bar.style.width = '100%';
+            overlay.classList.remove('is-active');
+            overlay.setAttribute('aria-hidden', 'true');
+            setTimeout(function () {
+                bar.classList.remove('is-active');
+                bar.style.width = '0%';
+            }, 300);
+        }
+
+        window.appLoading = { show: show, hide: hide };
+
+        function isOptedOut(el) {
+            return !!(el.closest && el.closest('[data-no-loading]'));
+        }
+
+        // Forms — covers every POST/GET submit (create, update, delete,
+        // search, receive, etc.) across the whole app in one place.
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (!(form instanceof HTMLFormElement) || e.defaultPrevented || isOptedOut(form)) return;
+
+            show();
+
+            // Disable the clicked submit button so a second click can't fire
+            // a duplicate submission — the browser has already captured this
+            // submission, so disabling now doesn't affect it.
+            var submitter = e.submitter || form.querySelector('button[type="submit"]');
+            if (submitter && !submitter.disabled) {
+                submitter.disabled = true;
+                submitter.classList.add('opacity-60', 'cursor-wait');
+            }
+        }, false);
+
+        // Same-page link navigations (not modal triggers, downloads,
+        // external links, or anchors — e.defaultPrevented catches anything
+        // a page's own click handler already intercepted, e.g. modal-open
+        // links, since those run first in bubble order).
+        document.addEventListener('click', function (e) {
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            var link = e.target.closest('a[href]');
+            if (!link || isOptedOut(link)) return;
+
+            var href = link.getAttribute('href');
+            if (!href || href.charAt(0) === '#') return;
+            if (link.target && link.target !== '_self') return;
+            if (link.hasAttribute('download')) return;
+            if (/^(mailto:|tel:|javascript:)/i.test(href)) return;
+
+            try {
+                if (new URL(href, window.location.href).origin !== window.location.origin) return;
+            } catch (err) { return; }
+
+            show();
+        }, false);
+
+        // Always reset on a fresh render — covers normal loads, the
+        // bfcache-restored back/forward case, and a validation error
+        // redirect landing back on the same page.
+        window.addEventListener('pageshow', function () { hide(); });
     })();
 </script>
 @stack('scripts')

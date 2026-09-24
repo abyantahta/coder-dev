@@ -14,9 +14,14 @@ class SyncQadPoNumbers extends Command
 
     public function handle(QadRequisitionService $qad): int
     {
+        // "Still needs checking" means at least one line has no PO number
+        // yet — not just the order-level qad_po_no, since QAD can split a
+        // PR across more than one PO and that field stays null on a split
+        // (there's no single "the" PO to put there).
         $pending = WoPartOrder::where('status', 'pr_created')
             ->whereNotNull('pr_number')
-            ->whereNull('qad_po_no')
+            ->whereHas('lines', fn ($q) => $q->whereNull('qad_po_no'))
+            ->with('lines')
             ->get();
 
         if ($pending->isEmpty()) {
@@ -38,11 +43,20 @@ class SyncQadPoNumbers extends Command
                 'qad_approval_status' => $result['approval_status'],
                 'qad_po_no' => $result['po_no'] ?? $order->qad_po_no,
             ]);
+
+            foreach ($order->lines as $i => $line) {
+                $lineResult = $result['lines'][$i + 1] ?? null;
+                if ($lineResult && $lineResult['po_no']) {
+                    $line->update(['qad_po_no' => $lineResult['po_no'], 'qad_po_status' => $lineResult['po_status']]);
+                }
+            }
             $updated++;
 
-            $this->info($result['po_no']
-                ? "PR {$order->pr_number} -> PO {$result['po_no']} (approval_status={$result['approval_status']})"
-                : "PR {$order->pr_number} -> approval_status={$result['approval_status']} (belum ada PO)");
+            $this->info(match (true) {
+                $result['is_split'] => "PR {$order->pr_number} -> split ".count(array_unique(array_filter(array_column($result['lines'], 'po_no'))))." PO (approval_status={$result['approval_status']})",
+                (bool) $result['po_no'] => "PR {$order->pr_number} -> PO {$result['po_no']} (approval_status={$result['approval_status']})",
+                default => "PR {$order->pr_number} -> approval_status={$result['approval_status']} (belum ada PO)",
+            });
         }
 
         $this->info("Selesai. Dicek: {$pending->count()}, di-update: {$updated}.");

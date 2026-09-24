@@ -481,3 +481,101 @@ html.sb-hidden #sidebar-toggle svg {
     border-radius: 0 999px 999px 0;
     background-color: var(--color-flame);
 }
+
+/* Global loading state — shown on every form submit and same-page link
+   navigation (see app.blade.php's #gloading script) so there's always a
+   visible signal that something's in flight, and the full-viewport overlay
+   blocks clicks on anything else underneath until it clears. */
+#gloading-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0%;
+    z-index: 100000;
+    background: linear-gradient(90deg, var(--color-flame), var(--color-ember));
+    box-shadow: 0 0 10px 1px rgb(242 121 11 / .55);
+    transition: width .4s cubic-bezier(.4, 0, .2, 1), opacity .25s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+#gloading-bar.is-active { opacity: 1; }
+
+#gloading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(18 22 28 / .16);
+    backdrop-filter: blur(1.5px);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .18s ease, visibility 0s linear .18s;
+    pointer-events: none;
+}
+#gloading-overlay.is-active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity .18s ease;
+}
+
+#gloading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .75rem;
+    padding: 1.5rem 1.75rem;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 12px 32px rgb(18 22 28 / .18), 0 2px 8px rgb(18 22 28 / .08);
+    opacity: 0;
+    transform: translateY(10px) scale(.94);
+    transition: opacity .22s cubic-bezier(.4, 0, .2, 1), transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+#gloading-overlay.is-active #gloading-card {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+}
+
+#gloading-ring {
+    position: relative;
+    width: 44px;
+    height: 44px;
+}
+#gloading-ring::before,
+#gloading-ring::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    border: 3px solid transparent;
+}
+#gloading-ring::before {
+    border-top-color: var(--color-flame);
+    border-right-color: var(--color-flame);
+    animation: gloading-spin .8s cubic-bezier(.5, 0, .5, 1) infinite;
+}
+#gloading-ring::after {
+    border-bottom-color: rgb(242 121 11 / .25);
+    border-left-color: rgb(242 121 11 / .25);
+    animation: gloading-spin 1.4s linear infinite reverse;
+}
+
+#gloading-text {
+    font-size: .8125rem;
+    font-weight: 600;
+    color: var(--color-slate-600);
+    letter-spacing: .01em;
+}
+
+@keyframes gloading-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #gloading-bar, #gloading-overlay, #gloading-card { transition: none; }
+    #gloading-ring::before, #gloading-ring::after { animation-duration: 1.6s; }
+}

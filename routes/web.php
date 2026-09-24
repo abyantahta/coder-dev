@@ -54,6 +54,10 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:warehouse_mtc,section_head,ga_section_head')->prefix('warehouse')->name('warehouse.')->group(function () {
         Route::get('/', [WarehouseController::class, 'index'])->name('index');
         Route::get('/history', [WarehouseController::class, 'history'])->name('history');
+        Route::get('/pr-po', [WarehouseController::class, 'prPoHistory'])->name('pr-po-history');
+        Route::post('/pr-po/receive', [WarehouseController::class, 'receiveByPo'])->name('pr-po-history.receive');
+        Route::get('/standalone/create', [WarehouseController::class, 'createStandalone'])->name('standalone.create');
+        Route::post('/standalone', [WarehouseController::class, 'storeStandalone'])->name('standalone.store');
     });
 
     // Part-order management — dedicated warehouse staff manage any order;
@@ -61,8 +65,9 @@ Route::middleware('auth')->group(function () {
     // e.g. GA's material_check step). Authorized per-request in the
     // controller (WarehouseController::canManageOrder), not by role here.
     Route::prefix('warehouse')->name('warehouse.')->group(function () {
-        Route::post('/work-orders/{workOrder}/create-pr', [WarehouseController::class, 'createPr'])->name('create-pr');
+        Route::post('/orders/{partOrder}/create-pr', [WarehouseController::class, 'createPr'])->name('create-pr');
         Route::post('/orders/{partOrder}/receive', [WarehouseController::class, 'receive'])->name('receive');
+        Route::post('/orders/{partOrder}/sync-received', [WarehouseController::class, 'syncReceivedStatus'])->name('orders.sync-received');
         Route::post('/orders/{partOrder}/check-po', [WarehouseController::class, 'checkPo'])->middleware('throttle:10,1')->name('orders.check-po');
         Route::get('/orders/{partOrder}', [WarehouseController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{partOrder}/lines', [WarehouseController::class, 'addLine'])->name('orders.add-line');

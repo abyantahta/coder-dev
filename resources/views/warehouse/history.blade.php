@@ -48,10 +48,14 @@
                 @forelse ($orders as $order)
                 <tr class="hover:bg-slate-50">
                     <td class="px-5 py-3">
+                        @if ($order->workOrder)
                         <a href="{{ route('work-orders.show', $order->workOrder) }}" class="text-blue-600 hover:underline font-medium">
                             {{ $order->workOrder->wo_number }}
                         </a>
-                        <div class="text-xs text-slate-400">{{ \Illuminate\Support\Str::limit($order->workOrder->title, 40) }}</div>
+                        @else
+                        <span class="text-slate-500 font-medium">PR Mandiri</span>
+                        @endif
+                        <div class="text-xs text-slate-400">{{ \Illuminate\Support\Str::limit($order->displayTitle(), 40) }}</div>
                     </td>
                     <td class="px-5 py-3 font-mono text-slate-700">{{ $order->pr_number ?: '—' }}</td>
                     <td class="px-5 py-3">

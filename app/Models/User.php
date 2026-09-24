@@ -66,16 +66,55 @@ class User extends Authenticatable
 
     // ── Role helpers ──────────────────────────────────────────────────────────
 
-    public function isSectionHead(): bool   { return $this->role === 'section_head'; }
-    public function isUnitHead(): bool      { return $this->role === 'unit_head'; }
-    public function isGroupHead(): bool     { return $this->role === 'group_head'; }
-    public function isMember(): bool        { return $this->role === 'member'; }
-    public function isWarehouseMtc(): bool  { return $this->role === 'warehouse_mtc'; }
-    public function isQaGroupHead(): bool    { return $this->role === 'qa_group_head'; }
-    public function isQaMember(): bool       { return $this->role === 'qa_member'; }
-    public function isQaSectionHead(): bool  { return $this->role === 'qa_section_head'; }
-    public function isQaStaff(): bool        { return in_array($this->role, ['qa_group_head', 'qa_member', 'qa_section_head']); }
-    public function isGaSectionHead(): bool  { return $this->role === 'ga_section_head'; }
+    public function isSectionHead(): bool
+    {
+        return $this->role === 'section_head';
+    }
+
+    public function isUnitHead(): bool
+    {
+        return $this->role === 'unit_head';
+    }
+
+    public function isGroupHead(): bool
+    {
+        return $this->role === 'group_head';
+    }
+
+    public function isMember(): bool
+    {
+        return $this->role === 'member';
+    }
+
+    public function isWarehouseMtc(): bool
+    {
+        return $this->role === 'warehouse_mtc';
+    }
+
+    public function isQaGroupHead(): bool
+    {
+        return $this->role === 'qa_group_head';
+    }
+
+    public function isQaMember(): bool
+    {
+        return $this->role === 'qa_member';
+    }
+
+    public function isQaSectionHead(): bool
+    {
+        return $this->role === 'qa_section_head';
+    }
+
+    public function isQaStaff(): bool
+    {
+        return in_array($this->role, ['qa_group_head', 'qa_member', 'qa_section_head']);
+    }
+
+    public function isGaSectionHead(): bool
+    {
+        return $this->role === 'ga_section_head';
+    }
 
     /**
      * Has their own QAD login on file — required for actions QAD demands a
@@ -96,8 +135,15 @@ class User extends Authenticatable
 
     public function managesWarehouseFor(WorkOrder $workOrder): bool
     {
+        return $this->managesWarehouseForDepartment($workOrder->target_department_id);
+    }
+
+    /** Same check as managesWarehouseFor(), but for a WoPartOrder that may have no parent WO (a standalone PR). */
+    public function managesWarehouseForDepartment(?int $departmentId): bool
+    {
         return $this->canActAsWarehouse()
-            && (int) $workOrder->target_department_id === (int) $this->department_id;
+            && $departmentId !== null
+            && (int) $departmentId === (int) $this->department_id;
     }
 
     public function isMaintenanceStaff(): bool
@@ -128,17 +174,17 @@ class User extends Authenticatable
     public static function roleLabel(string $role): string
     {
         return match ($role) {
-            'section_head'  => 'Section Head',
-            'unit_head'     => 'Unit Head',
-            'group_head'    => 'Group Head',
-            'member'        => 'Member',
+            'section_head' => 'Section Head',
+            'unit_head' => 'Unit Head',
+            'group_head' => 'Group Head',
+            'member' => 'Member',
             'warehouse_mtc' => 'Warehouse MTC',
-            'qa_group_head'  => 'QA Group Head',
-            'qa_member'      => 'QA Member',
+            'qa_group_head' => 'QA Group Head',
+            'qa_member' => 'QA Member',
             'qa_section_head' => 'QA Section Head',
             'ga_section_head' => 'GA Section Head',
-            'user'          => 'User',
-            default         => ucfirst($role),
+            'user' => 'User',
+            default => ucfirst($role),
         };
     }
 
@@ -151,7 +197,10 @@ class User extends Authenticatable
                 ->where('status', 'finished')
                 ->where('destination', 'maintenance')
                 ->get();
-            if ($finished->isEmpty()) return 0;
+            if ($finished->isEmpty()) {
+                return 0;
+            }
+
             return round($finished->avg('score'), 1);
         }
 
@@ -160,25 +209,37 @@ class User extends Authenticatable
                 ->where('status', 'finished')
                 ->where('destination', 'qa')
                 ->get();
-            if ($finished->isEmpty()) return 0;
+            if ($finished->isEmpty()) {
+                return 0;
+            }
+
             return round($finished->avg('score'), 1);
         }
 
         if ($this->role === 'group_head') {
             $members = User::where('group_id', $this->group_id)->where('role', 'member')->get();
-            if ($members->isEmpty()) return 0;
+            if ($members->isEmpty()) {
+                return 0;
+            }
+
             return round($members->map(fn ($m) => $m->service_rate)->average(), 1);
         }
 
         if ($this->role === 'unit_head') {
             $members = User::where('unit_id', $this->unit_id)->where('role', 'member')->get();
-            if ($members->isEmpty()) return 0;
+            if ($members->isEmpty()) {
+                return 0;
+            }
+
             return round($members->map(fn ($m) => $m->service_rate)->average(), 1);
         }
 
         if ($this->role === 'qa_group_head' || $this->role === 'qa_section_head') {
             $members = User::where('role', 'qa_member')->where('department', $this->department)->get();
-            if ($members->isEmpty()) return 0;
+            if ($members->isEmpty()) {
+                return 0;
+            }
+
             return round($members->map(fn ($m) => $m->service_rate)->average(), 1);
         }
 
@@ -190,6 +251,7 @@ class User extends Authenticatable
         if ($this->role === 'member') {
             return WorkOrder::where('assigned_member_id', $this->id)->count();
         }
+
         return 0;
     }
 
@@ -198,6 +260,7 @@ class User extends Authenticatable
         if ($this->role === 'member') {
             return WorkOrder::where('assigned_member_id', $this->id)->where('status', 'finished')->count();
         }
+
         return 0;
     }
 }

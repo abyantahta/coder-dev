@@ -1,34 +1,41 @@
 @extends('layouts.app')
 @section('title', 'Detail Pengadaan Parts')
-@section('page-title', 'Pengadaan Parts — ' . $partOrder->workOrder->wo_number)
+@section('page-title', 'Pengadaan Parts — ' . $partOrder->displayReference())
 
 @section('content')
 
+@if ($partOrder->workOrder)
 <a href="{{ route('work-orders.show', $partOrder->workOrder) }}"
     class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 mb-4">
     ← Kembali ke {{ $partOrder->workOrder->wo_number }}
 </a>
-
-@if (session('success'))
-<div class="bg-green-50 border border-green-200 text-green-800 text-sm rounded-lg px-4 py-3 mb-4">
-    {{ session('success') }}
-</div>
+@else
+<a href="{{ route('warehouse.index') }}"
+    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 mb-4">
+    ← Kembali ke Warehouse
+</a>
 @endif
 
 {{-- Header card --}}
 <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
     <div class="flex items-start justify-between gap-3 mb-2">
         <div>
-            <h2 class="font-semibold text-slate-800">{{ $partOrder->workOrder->title }}</h2>
+            <h2 class="font-semibold text-slate-800">{{ $partOrder->displayTitle() }}</h2>
             <div class="text-xs text-slate-500 mt-0.5">
+                @if ($partOrder->workOrder)
                 {{ $partOrder->workOrder->wo_number }} · {{ $partOrder->workOrder->requester->name }}
                 ({{ $partOrder->workOrder->requester->department }})
+                @else
+                PR Mandiri · {{ $partOrder->requestedBy->name }}
+                @endif
             </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
+            @if ($partOrder->workOrder)
             <span class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WorkOrder::priorityColor($partOrder->workOrder->priority) }}">
                 {{ ucfirst($partOrder->workOrder->priority) }}
             </span>
+            @endif
             <span class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WoPartOrder::statusColor($partOrder->status) }}">
                 {{ \App\Models\WoPartOrder::statusLabel($partOrder->status) }}
             </span>
@@ -53,10 +60,10 @@
             </span>
         </div>
     </div>
-    {{-- Keep the check available until there's an actual PO number — being
-         "approved" and having a PO issued are two separate moments in QAD,
-         and only the PO number means there's nothing left to check. --}}
-    @unless ($partOrder->qad_po_no)
+    {{-- Keep the check available until every line has its own PO number —
+         QAD can split one PR across more than one PO, so "approved" and
+         "every line has a PO" are two separate moments to wait for. --}}
+    @unless ($partOrder->allLinesHavePoNumber())
     <form method="POST" action="{{ route('warehouse.orders.check-po', $partOrder) }}">
         @csrf
         <button type="submit" class="text-sm font-medium text-blue-600 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">
@@ -67,12 +74,13 @@
 </div>
 @endif
 
-{{-- Isi PO langsung dari QAD (SDI_getActivePO2, dikunci ke No. PO) — baris
-     yang QAD anggap sudah selesai diterima penuh tidak lagi muncul di sini,
-     jadi ini gambaran "apa yang masih terbuka" bukan riwayat lengkap. --}}
-@if ($partOrder->qad_po_no)
+{{-- Isi tiap PO langsung dari QAD (SDI_getActivePO2, dikunci ke No. PO) —
+     satu kartu per PO karena QAD bisa split satu PR ke lebih dari satu PO.
+     Baris yang QAD anggap sudah selesai diterima penuh tidak lagi muncul di
+     sini, jadi ini gambaran "apa yang masih terbuka" bukan riwayat lengkap. --}}
+@foreach ($poLinesByPo ?? [] as $poNo => $poLines)
 <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-    <h3 class="font-semibold text-slate-800 mb-1">Isi PO {{ $partOrder->qad_po_no }} (langsung dari QAD)</h3>
+    <h3 class="font-semibold text-slate-800 mb-1">Isi PO {{ $poNo }} (langsung dari QAD)</h3>
     @if (empty($poLines))
     <p class="text-sm text-slate-500">
         Tidak ada baris terbuka ditemukan untuk PO ini di QAD — kemungkinan semua baris sudah diterima penuh,
@@ -108,7 +116,7 @@
     </div>
     @endif
 </div>
-@endif
+@endforeach
 
 {{-- Chosen lines --}}
 <div class="bg-white rounded-xl shadow-sm mb-6">
@@ -128,6 +136,9 @@
                 <div class="text-xs text-slate-500">
                     @if ($line->part_code)<span class="font-mono">{{ $line->part_code }}</span> · @endif
                     {{ $line->quantity }} {{ $line->uom }}
+                    @if ($line->qad_po_no)
+                    · <span class="text-slate-400">PO {{ $line->qad_po_no }}</span>
+                    @endif
                 </div>
             </div>
             @if ($partOrder->status === 'pending_warehouse')
@@ -155,10 +166,15 @@
                 {{ number_format($itemMasterCount) }} item aktif dari master QAD — dipakai untuk baris PR.
             </p>
         </div>
-        <a href="{{ route('items.index') }}"
-            class="text-sm text-blue-600 hover:text-blue-700 font-medium shrink-0">
-            Buka Master Data Item →
-        </a>
+        <div class="flex items-center gap-3 shrink-0">
+            <button type="button" class="js-open-manual-add bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+                + Create Memo
+            </button>
+            <a href="{{ route('items.index') }}"
+                class="text-xs text-slate-400 hover:text-blue-600">
+                Buka Master Data Item →
+            </a>
+        </div>
     </div>
 
     @if ($itemMasterCount === 0)
@@ -180,57 +196,166 @@
         @endif
     </form>
 
-    @forelse ($results as $item)
-    <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}"
-        class="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg px-3 py-2 mb-2">
-        @csrf
-        <input type="hidden" name="mode" value="catalog">
-        <input type="hidden" name="qad_item_id" value="{{ $item->id }}">
-        <div class="flex-1 min-w-[200px]">
-            <div class="text-sm font-medium text-slate-800">{{ $item->description ?: $item->qad_code }}</div>
-            <div class="text-xs text-slate-500 font-mono">
-                {{ $item->qad_code }}
-                @if ($item->part_number) · {{ $item->part_number }} @endif
+    <div class="max-h-96 overflow-y-auto pr-1 space-y-2">
+        @forelse ($results as $item)
+        <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}"
+            class="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg px-3 py-2">
+            @csrf
+            <input type="hidden" name="mode" value="catalog">
+            <input type="hidden" name="qad_item_id" value="{{ $item->id }}">
+            <div class="flex-1 min-w-[200px]">
+                <div class="text-sm font-medium text-slate-800">{{ $item->description ?: $item->qad_code }}</div>
+                <div class="text-xs text-slate-500 font-mono">
+                    {{ $item->qad_code }}
+                    @if ($item->part_number) · {{ $item->part_number }} @endif
+                </div>
             </div>
-        </div>
-        <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
-            class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <input type="text" name="uom" required placeholder="UOM" value="EA"
-            class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-            + Tambah
-        </button>
-    </form>
-    @empty
-    <p class="text-sm text-slate-400">
-        @if (request('q'))
-            Tidak ada item master ditemukan untuk "{{ request('q') }}".
-        @else
-            Tidak ada item aktif di master data.
-        @endif
-    </p>
-    @endforelse
+            <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
+                class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" name="uom" required placeholder="UOM" value="EA"
+                class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                + Tambah
+            </button>
+        </form>
+        @empty
+        <p class="text-sm text-slate-400">
+            @if (request('q'))
+                Tidak ada item master ditemukan untuk "{{ request('q') }}".
+            @else
+                Tidak ada item aktif di master data.
+            @endif
+        </p>
+        @endforelse
+    </div>
     @endif
 </div>
 
-{{-- Manual add --}}
-<div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-    <h3 class="font-semibold text-slate-800 mb-1">Item Tidak Ditemukan? Tambah Manual</h3>
-    <p class="text-xs text-slate-500 mb-3">Untuk item yang belum ada di data master QAD. Item number di QAD akan diisi nama item (tidak boleh kosong).</p>
-    <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}" class="flex flex-wrap items-end gap-2">
-        @csrf
-        <input type="hidden" name="mode" value="custom">
-        <input type="text" name="description" required placeholder="Nama / deskripsi item"
-            class="flex-1 min-w-[200px] border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <input type="number" name="quantity" required step="1" min="1" value="1" placeholder="Qty"
-            class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <input type="text" name="uom" required placeholder="UOM"
-            class="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <button type="submit" class="bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-            + Tambah Manual
-        </button>
-    </form>
+{{-- Create Memo (manual item, not in QAD master data) — popup --}}
+@php
+    $openManualAdd = old('mode') === 'custom' && $errors->any();
+@endphp
+<style>
+    #manual-add-modal { position: fixed; inset: 0; z-index: 99999; }
+    #manual-add-backdrop {
+        position: absolute; inset: 0;
+        background: rgb(18 22 28 / .48);
+        opacity: 0;
+        transition: opacity .22s cubic-bezier(.4, 0, .2, 1);
+    }
+    #manual-add-panel {
+        opacity: 0;
+        transform: translateY(18px) scale(.96);
+        transition: opacity .22s cubic-bezier(.4, 0, .2, 1), transform .32s cubic-bezier(.16, 1, .3, 1);
+        will-change: opacity, transform;
+    }
+    #manual-add-modal.is-open #manual-add-backdrop { opacity: 1; }
+    #manual-add-modal.is-open #manual-add-panel { opacity: 1; transform: translateY(0) scale(1); }
+    @media (prefers-reduced-motion: reduce) {
+        #manual-add-backdrop, #manual-add-panel { transition: none; }
+    }
+</style>
+<div id="manual-add-modal" class="{{ $openManualAdd ? 'is-open' : 'hidden' }}"
+    role="dialog" aria-modal="true" aria-labelledby="manual-add-title" data-open="{{ $openManualAdd ? '1' : '0' }}">
+    <div id="manual-add-backdrop" data-manual-add-close></div>
+    <div class="flex items-start justify-center p-4 sm:items-center sm:p-6" style="position:relative;z-index:1;min-height:100%;">
+        <div id="manual-add-panel" class="w-full max-w-md rounded-xl bg-white shadow-lg overflow-y-auto">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                <h2 id="manual-add-title" class="text-base font-semibold text-slate-900">Create Memo</h2>
+                <button type="button" data-manual-add-close class="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700" title="Tutup">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form method="POST" action="{{ route('warehouse.orders.add-line', $partOrder) }}" class="space-y-4 p-5">
+                @csrf
+                <input type="hidden" name="mode" value="custom">
+                <p class="text-xs text-slate-500">Untuk item yang belum ada di data master QAD. Item number di QAD akan diisi nama item (tidak boleh kosong).</p>
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium text-slate-700">Nama / Deskripsi Item</label>
+                    <input type="text" name="description" id="manual-add-description" required value="{{ old('description') }}" placeholder="Nama / deskripsi item"
+                        class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('description') border-red-400 @enderror">
+                    @error('description') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+                <div class="flex gap-3">
+                    <div class="flex-1">
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">Qty</label>
+                        <input type="number" name="quantity" required step="1" min="1" value="{{ old('quantity', 1) }}"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('quantity') border-red-400 @enderror">
+                        @error('quantity') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                    </div>
+                    <div class="flex-1">
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">UOM</label>
+                        <input type="text" name="uom" required value="{{ old('uom') }}" placeholder="EA"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('uom') border-red-400 @enderror">
+                        @error('uom') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 pt-1">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition">
+                        + Tambah
+                    </button>
+                    <button type="button" data-manual-add-close class="text-sm text-slate-500 hover:text-slate-700">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
+<script>
+(function () {
+    const modal = document.getElementById('manual-add-modal');
+    if (!modal) return;
+
+    const descInput = document.getElementById('manual-add-description');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let closeTimer = null;
+
+    function openModal() {
+        if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        const alreadyOpen = modal.classList.contains('is-open') && !modal.classList.contains('hidden');
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('overflow-hidden');
+        if (alreadyOpen || reduceMotion) {
+            modal.classList.add('is-open');
+            descInput && descInput.focus();
+            return;
+        }
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () { modal.classList.add('is-open'); });
+        });
+        setTimeout(function () { descInput && descInput.focus(); }, 180);
+    }
+
+    function closeModal() {
+        if (modal.classList.contains('hidden')) return;
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        const finish = function () {
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+            closeTimer = null;
+        };
+        if (reduceMotion) { finish(); return; }
+        closeTimer = setTimeout(finish, 260);
+    }
+
+    document.querySelectorAll('.js-open-manual-add').forEach(function (el) {
+        el.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+    });
+
+    modal.querySelectorAll('[data-manual-add-close]').forEach(function (el) {
+        el.addEventListener('click', closeModal);
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+
+    if (modal.dataset.open === '1') openModal();
+})();
+</script>
 
 {{-- Create PR --}}
 <div class="bg-white rounded-xl shadow-sm p-5">
@@ -244,7 +369,7 @@
     @if ($partOrder->lines->isEmpty())
     <p class="text-sm text-slate-400">Tambahkan minimal 1 item sparepart terlebih dahulu.</p>
     @else
-    <form method="POST" action="{{ route('warehouse.create-pr', $partOrder->workOrder) }}" class="space-y-3">
+    <form method="POST" action="{{ route('warehouse.create-pr', $partOrder) }}" class="space-y-3">
         @csrf
         <div>
             <label class="block text-xs font-medium text-slate-600 mb-1">Butuh Tanggal <span class="text-red-500">*</span></label>
@@ -267,7 +392,8 @@
 @endif
 
 {{-- Confirm goods received --}}
-@if ($partOrder->status === 'pr_created' && ! $partOrder->qad_po_no)
+@php $poNumbers = $partOrder->poNumbers(); @endphp
+@if ($partOrder->status === 'pr_created' && empty($poNumbers))
 <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
     <h3 class="font-semibold text-amber-800 mb-1">Menunggu PO dari QAD</h3>
     <p class="text-sm text-amber-700">
@@ -275,11 +401,26 @@
         cek statusnya di kartu "Status QAD" di atas.
     </p>
 </div>
+@elseif ($partOrder->status === 'pr_created' && $allAlreadyReceived)
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
+    <h3 class="font-semibold text-blue-800 mb-1">Sudah Diterima di QAD</h3>
+    <p class="text-sm text-blue-700 mb-4">
+        Seluruh item PR ini sudah tercatat diterima penuh di QAD, tapi belum pernah disubmit lewat form Receive di
+        CODER — kemungkinan diterima manual langsung di QAD. Klik tombol di bawah untuk menyamakan status di CODER
+        (tidak mengirim apa pun ke QAD, hanya membaca status yang sudah ada).
+    </p>
+    <form method="POST" action="{{ route('warehouse.orders.sync-received', $partOrder) }}">
+        @csrf
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition">
+            Sinkronkan Status dari QAD
+        </button>
+    </form>
+</div>
 @elseif ($partOrder->status === 'pr_created' && ! $canReceive)
 <div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
     <h3 class="font-semibold text-slate-800 mb-1">Menunggu Barang Diterima</h3>
     <p class="text-sm text-slate-600">
-        PO {{ $partOrder->qad_po_no }} sudah terbit di QAD, tapi kamu belum terdaftar sebagai penerima barang
+        PO {{ implode(', ', $poNumbers) }} sudah terbit di QAD, tapi kamu belum terdaftar sebagai penerima barang
         (belum ada login QAD sendiri) — hanya bisa memantau statusnya di sini.
         Hubungi admin kalau kamu memang bertugas menerima barang untuk order ini.
     </p>
@@ -289,7 +430,7 @@
     <h3 class="font-semibold text-slate-800 mb-1">Konfirmasi Barang Diterima</h3>
     <p class="text-xs text-slate-500 mb-4">
         Isi jumlah yang benar-benar datang secara fisik per item — boleh sebagian dulu, sisanya bisa
-        menyusul. Tercatat langsung ke PO {{ $partOrder->qad_po_no }} di QAD.
+        menyusul. Tercatat langsung ke {{ count($poNumbers) > 1 ? 'PO terkait masing-masing item' : 'PO '.$poNumbers[0] }} di QAD.
         @if ($partOrder->expected_arrival)
         Estimasi tiba {{ $partOrder->expected_arrival->format('d M Y') }}.
         @endif
@@ -302,6 +443,7 @@
             @php
                 $already = $receivedByLineId[$line->id] ?? 0.0;
                 $remaining = max(0, $line->quantity - $already);
+                $linePoNo = $line->qad_po_no ?: (count($poNumbers) === 1 ? $poNumbers[0] : null);
             @endphp
             <div class="flex flex-wrap items-center gap-3 px-4 py-3 {{ $remaining <= 0 ? 'bg-green-50/50' : '' }}">
                 <div class="flex-1 min-w-[180px]">
@@ -309,10 +451,19 @@
                     <div class="text-xs text-slate-500">
                         Dipesan {{ $line->quantity }} {{ $line->uom }}
                         @if ($already > 0) · sudah diterima {{ $already }} {{ $line->uom }} @endif
+                        @if ($linePoNo) · <span class="text-slate-400">PO {{ $linePoNo }}</span> @endif
                     </div>
                 </div>
                 <input type="hidden" name="items[{{ $loop->index }}][line_id]" value="{{ $line->id }}">
-                @if ($remaining <= 0)
+                @if (! $linePoNo)
+                {{-- Same reasoning as the "Lengkap" hidden 0 below — a required field
+                     missing for any one item silently fails the whole submission. --}}
+                <input type="hidden" name="items[{{ $loop->index }}][qty_received]" value="0">
+                <span class="text-xs font-medium text-amber-600 shrink-0">Menunggu PO</span>
+                @elseif ($remaining <= 0)
+                {{-- qty_received is a required field per item — without this hidden 0,
+                     submitting any other line alone silently fails validation on this one. --}}
+                <input type="hidden" name="items[{{ $loop->index }}][qty_received]" value="0">
                 <span class="text-xs font-medium text-green-700 shrink-0">✓ Lengkap</span>
                 @else
                 <div class="shrink-0">
@@ -332,7 +483,7 @@
         </div>
 
         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition">
-            ✓ Catat Penerimaan
+            Receive
         </button>
     </form>
 </div>
@@ -340,7 +491,7 @@
 <div class="bg-green-50 border border-green-200 rounded-xl p-5">
     <h3 class="font-semibold text-green-800 mb-1">Barang Sudah Diterima</h3>
     <p class="text-sm text-green-700">
-        Diterima {{ $partOrder->received_at?->format('d M Y, H:i') }} — PO {{ $partOrder->qad_po_no }}.
+        Diterima {{ $partOrder->received_at?->format('d M Y, H:i') }} — PO {{ implode(', ', $partOrder->poNumbers()) }}.
         WO ini otomatis lanjut ke tahap berikutnya.
     </p>
 </div>

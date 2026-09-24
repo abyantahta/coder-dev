@@ -10,6 +10,7 @@ class WoPartOrderLine extends Model
     protected $fillable = [
         'wo_part_order_id', 'qad_item_id', 'part_code', 'description',
         'quantity', 'uom', 'is_custom', 'added_by', 'notes',
+        'qad_po_no', 'qad_po_status',
     ];
 
     protected $casts = [

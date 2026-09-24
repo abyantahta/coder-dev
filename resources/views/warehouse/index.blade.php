@@ -8,10 +8,18 @@
 
 @section('content')
 
-<div class="flex justify-end mb-4">
+<div class="flex justify-end items-center gap-4 mb-4">
+    <a href="{{ route('warehouse.pr-po-history') }}"
+        class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+        PR / PO / Receiving →
+    </a>
     <a href="{{ route('warehouse.history') }}"
         class="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
         Riwayat PR Lengkap →
+    </a>
+    <a href="{{ route('warehouse.standalone.create') }}"
+        class="js-open-standalone-create inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg">
+        + Buat PR Mandiri
     </a>
 </div>
 
@@ -62,11 +70,12 @@
             <h3 class="font-semibold text-slate-800">Menunggu Pembuatan PR</h3>
             <span class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{{ $pendingOrders->count() }}</span>
         </div>
-        <div class="divide-y divide-slate-50">
+        <div class="divide-y divide-slate-50 max-h-[520px] overflow-y-auto">
             @forelse ($pendingOrders as $order)
             <div class="p-4">
                 <div class="flex items-start justify-between gap-3 mb-2">
                     <div>
+                        @if ($order->workOrder)
                         <a href="{{ route('work-orders.show', $order->workOrder) }}"
                             class="font-medium text-slate-800 hover:text-blue-600 text-sm">
                             {{ $order->workOrder->title }}
@@ -74,15 +83,21 @@
                         <div class="text-xs text-slate-500 mt-0.5">
                             {{ $order->workOrder->wo_number }} · {{ $order->workOrder->requester->name }} ({{ $order->workOrder->requester->department }})
                         </div>
+                        @else
+                        <span class="font-medium text-slate-800 text-sm">{{ $order->displayTitle() }}</span>
+                        <div class="text-xs text-slate-500 mt-0.5">PR Mandiri · {{ $order->requestedBy->name }}</div>
+                        @endif
                         @if ($order->request_note)
                         <div class="text-xs text-amber-700 mt-1 bg-amber-50 border border-amber-100 rounded px-2 py-1">
                             Catatan UH: {{ $order->request_note }}
                         </div>
                         @endif
                     </div>
+                    @if ($order->workOrder)
                     <span class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WorkOrder::priorityColor($order->workOrder->priority) }} shrink-0">
                         {{ ucfirst($order->workOrder->priority) }}
                     </span>
+                    @endif
                 </div>
 
                 <a href="{{ route('warehouse.orders.show', $order) }}"
@@ -102,27 +117,33 @@
             <h3 class="font-semibold text-slate-800">PR Aktif (Dalam Pengiriman)</h3>
             <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">{{ $activeOrders->count() }}</span>
         </div>
-        <div class="divide-y divide-slate-50">
+        <div class="divide-y divide-slate-50 max-h-[520px] overflow-y-auto">
             @forelse ($activeOrders as $order)
             @php $overdue = $order->isOverdue(); @endphp
             <div class="p-4 {{ $overdue ? 'bg-red-50' : '' }}">
                 <div class="flex items-start justify-between gap-3 mb-2">
                     <div>
+                        @if ($order->workOrder)
                         <a href="{{ route('work-orders.show', $order->workOrder) }}"
                             class="font-medium text-slate-800 hover:text-blue-600 text-sm">
                             {{ $order->workOrder->title }}
                         </a>
+                        @else
+                        <span class="font-medium text-slate-800 text-sm">{{ $order->displayTitle() }}</span>
+                        @endif
                         <div class="text-xs text-slate-500 mt-0.5">
-                            {{ $order->workOrder->wo_number }} · PR: <strong>{{ $order->pr_number }}</strong>
+                            {{ $order->displayReference() }} · PR: <strong>{{ $order->pr_number }}</strong>
                         </div>
                         <div class="text-xs mt-1 {{ $overdue ? 'text-red-600 font-semibold' : 'text-slate-500' }}">
                             Estimasi tiba: {{ $order->expected_arrival?->format('d M Y') }}
                             @if ($overdue) <span class="text-red-600">(OVERDUE)</span> @endif
                         </div>
                     </div>
+                    @if ($order->workOrder)
                     <span class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WorkOrder::priorityColor($order->workOrder->priority) }} shrink-0">
                         {{ ucfirst($order->workOrder->priority) }}
                     </span>
+                    @endif
                 </div>
 
                 {{-- Days remaining --}}
@@ -180,7 +201,7 @@
             @forelse ($receivedOrders as $order)
             <div class="flex items-center justify-between p-3 bg-green-50 border border-green-100 rounded-lg">
                 <div class="min-w-0">
-                    <div class="text-sm font-medium text-slate-800 truncate">{{ $order->workOrder->title }}</div>
+                    <div class="text-sm font-medium text-slate-800 truncate">{{ $order->displayTitle() }}</div>
                     <div class="text-xs text-slate-500">PR: {{ $order->pr_number }} · {{ $order->received_at?->format('d M Y') }}</div>
                 </div>
                 @php $days = $order->procurement_days; @endphp
@@ -234,14 +255,22 @@
                         </svg>
                     </td>
                     <td class="px-4 py-3">
+                        @if ($order->workOrder)
                         <a href="{{ route('work-orders.show', $order->workOrder) }}"
                             class="text-blue-600 hover:underline font-medium">
                             {{ $order->workOrder->wo_number }}
                         </a>
+                        @else
+                        <span class="text-slate-500 font-medium">PR Mandiri</span>
+                        @endif
                     </td>
                     <td class="px-4 py-3">
-                        <div class="font-medium text-slate-800">{{ $order->workOrder->title }}</div>
+                        <div class="font-medium text-slate-800">{{ $order->displayTitle() }}</div>
+                        @if ($order->workOrder)
                         <div class="text-xs text-slate-400">{{ $order->workOrder->requester->name }} · {{ $order->workOrder->requester->department }}</div>
+                        @else
+                        <div class="text-xs text-slate-400">{{ $order->requestedBy->name }}</div>
+                        @endif
                     </td>
                     <td class="px-4 py-3 font-mono text-slate-700">{{ $order->pr_number ?: '—' }}</td>
                     <td class="px-4 py-3">

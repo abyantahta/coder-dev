@@ -54,7 +54,7 @@ class QadRequisitionService
 
         $order->loadMissing('workOrder', 'lines.qadItem', 'requestedBy');
 
-        $config = DepartmentQadConfig::where('department_id', $order->workOrder->target_department_id)->first();
+        $config = DepartmentQadConfig::where('department_id', $order->targetDepartmentId())->first();
 
         if (! $config || ! $config->site_code) {
             return [
@@ -125,15 +125,24 @@ class QadRequisitionService
 
     /**
      * Check a requisition's approval status and, once it exists, its PO
-     * number (SDI_getPRtoPO_, over the WSA broker). ApprovalStatus is
+     * number(s) (SDI_getPRtoPO_, over the WSA broker). ApprovalStatus is
      * QAD's own field (confirmed live: '2' = approved) and is the direct
      * signal — PONbr can still be useful on its own (and briefly echoes
      * the requisition number itself while merely routed for purchasing,
-     * before a real PO exists, so that case is filtered out). Returns
-     * null when nothing is known yet (or on any lookup failure — this is
-     * a best-effort check, never blocks the PR itself).
+     * before a real PO exists, so that case is filtered out).
      *
-     * @return array{po_no: ?string, po_status: ?string, approval_status: ?string}|null
+     * QAD can split one PR's lines across more than one PO (e.g. by
+     * vendor) — each row is one PR line with its own independent PONbr, so
+     * this returns every line's own po_no/po_status/qty (keyed by ReqLine)
+     * rather than assuming a single PO for the whole requisition. `po_no`/
+     * `po_status` at the top level stay as a convenience for the simple
+     * (non-split) case: null when lines disagree, so callers don't
+     * silently treat a split PR as having one PO.
+     *
+     * Returns null when nothing is known yet (or on any lookup failure —
+     * this is a best-effort check, never blocks the PR itself).
+     *
+     * @return array{po_no: ?string, po_status: ?string, approval_status: ?string, is_split: bool, lines: array<int, array{po_no: ?string, po_status: ?string}>}|null
      */
     public function findPurchaseOrder(string $rqmNbr): ?array
     {
@@ -164,28 +173,52 @@ class QadRequisitionService
             ? trim($am[1])
             : null;
 
-        $poNo = null;
-        $poStatus = null;
+        $lines = [];
 
         foreach ($rows[1] as $row) {
-            if (! preg_match('/<PONbr>([^<]+)<\/PONbr>/i', $row, $m)) {
+            $reqLine = preg_match('/<ReqLine>([^<]+)<\/ReqLine>/i', $row, $lm) ? (int) trim($lm[1]) : null;
+
+            if ($reqLine === null) {
                 continue;
             }
 
-            $candidate = trim($m[1]);
+            $poNo = null;
+            $poStatus = null;
 
-            if ($candidate !== '' && stripos($candidate, 'PO') === 0 && strcasecmp($candidate, $rqmNbr) !== 0) {
-                $poNo = $candidate;
-                $poStatus = preg_match('/<POStatus>([^<]*)<\/POStatus>/i', $row, $sm) ? trim($sm[1]) : null;
-                break;
+            if (preg_match('/<PONbr>([^<]+)<\/PONbr>/i', $row, $m)) {
+                $candidate = trim($m[1]);
+
+                if ($candidate !== '' && stripos($candidate, 'PO') === 0 && strcasecmp($candidate, $rqmNbr) !== 0) {
+                    $poNo = $candidate;
+                    $poStatus = preg_match('/<POStatus>([^<]*)<\/POStatus>/i', $row, $sm) ? trim($sm[1]) : null;
+                }
             }
+
+            $lines[$reqLine] = ['po_no' => $poNo, 'po_status' => $poStatus];
         }
 
-        if ($poNo === null && $approvalStatus === null) {
+        $distinctPoNumbers = collect($lines)->pluck('po_no')->filter()->unique()->values();
+        $isSplit = $distinctPoNumbers->count() > 1;
+
+        // Only surface a single top-level po_no/po_status when every line
+        // agrees (or only one line even has one yet) — a split PR has no
+        // one "the" PO, so leave it null and make callers look at `lines`.
+        $primaryPoNo = $isSplit ? null : $distinctPoNumbers->first();
+        $primaryPoStatus = $primaryPoNo
+            ? collect($lines)->firstWhere('po_no', $primaryPoNo)['po_status'] ?? null
+            : null;
+
+        if ($distinctPoNumbers->isEmpty() && $approvalStatus === null) {
             return null;
         }
 
-        return ['po_no' => $poNo, 'po_status' => $poStatus, 'approval_status' => $approvalStatus];
+        return [
+            'po_no' => $primaryPoNo,
+            'po_status' => $primaryPoStatus,
+            'approval_status' => $approvalStatus,
+            'is_split' => $isSplit,
+            'lines' => $lines,
+        ];
     }
 
     /**
@@ -245,7 +278,7 @@ class QadRequisitionService
      * than a complete per-line history — getReceivedQtyByLine() (PR-keyed)
      * remains the source of truth for validating our own receipts.
      *
-     * @return array<int, array{part: string, qty_ord: float, qty_rcvd: float, um: string, due_date: ?string, status: string}>
+     * @return array<int, array{po_no: string, line: int, part: string, qty_ord: float, qty_rcvd: float, um: string, due_date: ?string, status: string, site: string, vendor: string}>
      */
     public function findPurchaseOrderLines(string $poNumber, ?\DateTimeInterface $referenceDate = null): array
     {
@@ -261,23 +294,51 @@ class QadRequisitionService
         }
 
         foreach ($months as $when) {
-            $xml = $this->buildActivePO2Xml($when, $namespace);
-            $response = $this->wsa->call($xml);
+            $rows = $this->fetchActivePoLines($when);
+            $lines = [];
 
-            if ($response['is_error']) {
-                Log::warning('QAD WSA findPurchaseOrderLines failed', ['po_no' => $poNumber, 'message' => $response['message'] ?? null]);
-
-                continue;
+            foreach ($rows as $row) {
+                if ($row['po_no'] === $poNumber) {
+                    $lines[$row['line']] = $row;
+                }
             }
 
-            $lines = $this->parseActivePO2Rows($response['raw'] ?? '', $poNumber);
-
             if (! empty($lines)) {
+                ksort($lines);
+
                 return $lines;
             }
         }
 
         return [];
+    }
+
+    /**
+     * Every active PO line QAD knows about for a given month (SDI_getActivePO2,
+     * WSA broker), unfiltered — every site/vendor, not just our own PRs'.
+     * findPurchaseOrderLines() filters this down to one PO. Returns [] on
+     * any lookup failure — best-effort, like the other WSA reads here.
+     *
+     * @return array<int, array{po_no: string, line: int, part: string, qty_ord: float, qty_rcvd: float, um: string, due_date: ?string, status: string, site: string, vendor: string}>
+     */
+    public function fetchActivePoLines(\DateTimeInterface $when): array
+    {
+        $namespace = config('qad.ws_namespace');
+
+        if (blank($namespace)) {
+            return [];
+        }
+
+        $xml = $this->buildActivePO2Xml($when, $namespace);
+        $response = $this->wsa->call($xml);
+
+        if ($response['is_error']) {
+            Log::warning('QAD WSA fetchActivePoLines failed', ['when' => $when->format('Y-m'), 'message' => $response['message'] ?? null]);
+
+            return [];
+        }
+
+        return $this->parseActivePO2Rows($response['raw'] ?? '');
     }
 
     private function buildActivePO2Xml(\DateTimeInterface $when, string $namespace): string
@@ -298,7 +359,7 @@ class QadRequisitionService
 XML;
     }
 
-    private function parseActivePO2Rows(string $body, string $poNumber): array
+    private function parseActivePO2Rows(string $body): array
     {
         if (! preg_match_all('/<tempRow>(.*?)<\/tempRow>/is', $body, $rows)) {
             return [];
@@ -307,23 +368,23 @@ XML;
         $result = [];
 
         foreach ($rows[1] as $row) {
-            if (! preg_match('/<t_pod_nbr>([^<]*)<\/t_pod_nbr>/i', $row, $nbrM) || trim($nbrM[1]) !== $poNumber) {
+            if (! preg_match('/<t_pod_nbr>([^<]*)<\/t_pod_nbr>/i', $row, $nbrM)) {
                 continue;
             }
 
-            $line = preg_match('/<t_pod_line>([^<]*)<\/t_pod_line>/i', $row, $m) ? (int) trim($m[1]) : 0;
-
-            $result[$line] = [
+            $result[] = [
+                'po_no' => trim($nbrM[1]),
+                'line' => preg_match('/<t_pod_line>([^<]*)<\/t_pod_line>/i', $row, $m) ? (int) trim($m[1]) : 0,
                 'part' => preg_match('/<t_pod_part>([^<]*)<\/t_pod_part>/i', $row, $m) ? trim($m[1]) : '',
                 'qty_ord' => preg_match('/<t_pod_qty_ord>([^<]*)<\/t_pod_qty_ord>/i', $row, $m) ? (float) trim($m[1]) : 0.0,
                 'qty_rcvd' => preg_match('/<t_pod_qty_rcvd>([^<]*)<\/t_pod_qty_rcvd>/i', $row, $m) ? (float) trim($m[1]) : 0.0,
                 'um' => preg_match('/<t_pod_um>([^<]*)<\/t_pod_um>/i', $row, $m) ? trim($m[1]) : '',
                 'due_date' => preg_match('/<t_pod_due_date>([^<]*)<\/t_pod_due_date>/i', $row, $m) ? trim($m[1]) : null,
                 'status' => preg_match('/<t_pod_status>([^<]*)<\/t_pod_status>/i', $row, $m) ? trim($m[1]) : '',
+                'site' => preg_match('/<t_pt_site>([^<]*)<\/t_pt_site>/i', $row, $m) ? trim($m[1]) : '',
+                'vendor' => preg_match('/<t_po_vend>([^<]*)<\/t_po_vend>/i', $row, $m) ? trim($m[1]) : '',
             ];
         }
-
-        ksort($result);
 
         return $result;
     }
@@ -334,11 +395,15 @@ XML;
      * the receiving user themselves (QAD requires a real named/authorized
      * person for this, unlike PR creation's shared service account), so
      * $actor must have their own qad_username/qad_password on file (see
-     * User::canReceiveInQad()). $lines: list of ['line' => int, 'qty' => float].
+     * User::canReceiveInQad()). $lines: list of ['line' => int, 'qty' => float]
+     * — every line here must belong to $poNumber; a PR split across
+     * multiple POs means one call per PO, since QAD's ordernum is one PO
+     * per call (see WarehouseController::receive(), which groups lines by
+     * their own WoPartOrderLine::qad_po_no before calling this).
      *
-     * @return array{success: bool, message: string, raw_response?: string}
+     * @return array{success: bool, message: string, raw_response?: string, qad_result?: ?string, qad_warning?: ?string}
      */
-    public function receivePurchaseOrder(WoPartOrder $order, array $lines, User $actor): array
+    public function receivePurchaseOrder(string $poNumber, WoPartOrder $order, array $lines, User $actor): array
     {
         if (blank($this->url)) {
             return ['success' => false, 'message' => 'QAD SOAP belum dikonfigurasi'];
@@ -346,7 +411,7 @@ XML;
         if (! $actor->canReceiveInQad()) {
             return ['success' => false, 'message' => 'Kamu belum punya login QAD sendiri — hubungi admin untuk didaftarkan sebagai penerima barang.'];
         }
-        if (blank($order->qad_po_no)) {
+        if (blank($poNumber)) {
             return ['success' => false, 'message' => 'Nomor PO QAD belum diisi.'];
         }
         if (empty($lines)) {
@@ -354,13 +419,13 @@ XML;
         }
 
         $order->loadMissing('workOrder');
-        $config = DepartmentQadConfig::where('department_id', $order->workOrder->target_department_id)->first();
+        $config = DepartmentQadConfig::where('department_id', $order->targetDepartmentId())->first();
 
         if (! $config || ! $config->site_code || ! $config->location) {
             return ['success' => false, 'message' => 'Konfigurasi QAD (site/location) untuk departemen ini belum diisi.'];
         }
 
-        $xml = $this->buildReceivePurchaseOrderXml($order->qad_po_no, $lines, $config, $actor);
+        $xml = $this->buildReceivePurchaseOrderXml($poNumber, $lines, $config, $actor);
 
         try {
             $response = Http::withBody($xml, 'text/xml; charset=utf-8')
@@ -385,21 +450,33 @@ XML;
             $result = $this->extractResult($body);
             $warnings = $this->extractWarnings($body);
 
-            if ($result === 'error') {
-                Log::error('QAD SOAP receivePurchaseOrder error result', ['body' => $body]);
-
-                return ['success' => false, 'message' => $warnings ?: 'QAD mengembalikan status error.', 'raw_response' => $body];
+            // QAD has been seen to report result=error here for a GL/costing
+            // posting sub-failure (missing cost fields etc.) even though the
+            // actual goods movement/qty posted fine — so this alone is not
+            // trustworthy as a pass/fail signal. Don't hard-fail on it; pass
+            // it through as a warning and let the caller verify against the
+            // real received qty (getReceivedQtyByLine) to decide what
+            // actually happened.
+            if ($result === 'error' || $result === 'warning') {
+                Log::warning('QAD SOAP receivePurchaseOrder non-success result', ['po_no' => $poNumber, 'result' => $result, 'warnings' => $warnings]);
             }
 
-            $message = $result === 'warning' && $warnings
-                ? "Penerimaan PO tercatat dengan catatan: {$warnings}"
-                : 'Penerimaan PO berhasil dicatat di QAD.';
-
             Log::info('QAD SOAP receivePurchaseOrder response', [
-                'po_no' => $order->qad_po_no, 'actor_id' => $actor->id, 'lines' => $lines, 'result' => $result, 'warnings' => $warnings,
+                'po_no' => $poNumber, 'actor_id' => $actor->id, 'lines' => $lines, 'result' => $result, 'warnings' => $warnings,
             ]);
 
-            return ['success' => true, 'message' => $message, 'raw_response' => $body];
+            // Keep the user-facing message plain — $warnings is QAD's raw
+            // Progress ABL field-error text (e.g. "tx2d_totamt is mandatory,
+            // ..."), not something a warehouse user should have to read.
+            // It's still returned as qad_warning for whoever needs to chase
+            // it up on the QAD side (e.g. via qad_response on the order).
+            return [
+                'success' => true,
+                'message' => 'Penerimaan PO berhasil dicatat di QAD.',
+                'raw_response' => $body,
+                'qad_result' => $result,
+                'qad_warning' => $warnings ?: null,
+            ];
         } catch (Exception $e) {
             Log::error('QAD SOAP receivePurchaseOrder exception: '.$e->getMessage());
 
@@ -576,7 +653,7 @@ XML;
         // One need date for the whole PR batch (not per line) — required
         // before a PR can be created, see WarehouseController::createPr().
         $needDate = $order->need_date?->format('Y-m-d') ?? $today;
-        $purpose = $this->esc($order->warehouse_note ?: $order->request_note ?: 'Kebutuhan '.$order->workOrder->wo_number);
+        $purpose = $this->esc($order->warehouse_note ?: $order->request_note ?: 'Kebutuhan '.$order->displayReference());
 
         // rqmNbr filled means this order already has a QAD requisition
         // (retry after a previous send) — QAD updates that same
@@ -612,8 +689,8 @@ XML;
             <qcom:dsSessionContext>
                 <qcom:ttContext>
                     <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
-                    <qcom:propertyName>7000</qcom:propertyName>
-                    <qcom:propertyValue/>
+                    <qcom:propertyName>domain</qcom:propertyName>
+                    <qcom:propertyValue>7000</qcom:propertyValue>
                 </qcom:ttContext>
                 <qcom:ttContext>
                     <qcom:propertyQualifier>QAD</qcom:propertyQualifier>
