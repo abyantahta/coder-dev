@@ -229,7 +229,7 @@
 @if (! $row->fully_received && $row->can_receive)
 <div id="po-receive-modal-{{ $i }}" class="pph-modal hidden" role="dialog" aria-modal="true">
     <div class="pph-modal-backdrop" data-close-modal></div>
-    <div class="flex items-start justify-center p-4 sm:items-center sm:p-6" style="position:relative;z-index:1;min-height:100%;">
+    <div class="flex items-start justify-center p-4 sm:items-center sm:p-6" style="position:relative;z-index:1;min-height:100%;pointer-events:none;">
         <div class="pph-modal-panel w-full max-w-lg rounded-xl bg-white shadow-lg overflow-y-auto" style="max-height:min(90vh,720px)">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                 <h2 class="text-base font-semibold text-slate-900">Receive — PO {{ $row->po_no }}</h2>
@@ -295,6 +295,7 @@
         transition: opacity .22s cubic-bezier(.4, 0, .2, 1);
     }
     .pph-modal-panel {
+        pointer-events: auto;
         opacity: 0;
         transform: translateY(18px) scale(.96);
         transition: opacity .22s cubic-bezier(.4, 0, .2, 1), transform .32s cubic-bezier(.16, 1, .3, 1);

@@ -501,7 +501,10 @@
 <div class="bg-white rounded-xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">
         <h3 class="font-semibold text-slate-800">WO GA Terbaru</h3>
-        <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+        <div class="flex items-center gap-4">
+            <a href="{{ route('performance.ga') }}" class="text-xs text-blue-600 hover:underline">Performance →</a>
+            <a href="{{ route('work-orders.index') }}" class="text-xs text-blue-600 hover:underline">Lihat semua</a>
+        </div>
     </div>
     <div class="space-y-2">
         @forelse ($recentWos as $wo)

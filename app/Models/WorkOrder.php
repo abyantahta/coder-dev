@@ -337,6 +337,13 @@ class WorkOrder extends Model
                                         $s->whereNotIn('approval_steps.step_type', ['requester_review', 'completion', 'material_check'])
                                             ->whereNotNull('approval_steps.actor_role_id')
                                             ->where('approval_steps.actor_role_id', $user->dept_role_id);
+                                        // Mirrors ApprovalService::withinAssignedGroup().
+                                        if ($user->group_id !== null) {
+                                            $s->where(fn ($g) => $g
+                                                ->where('approval_steps.step_type', '!=', 'assign')
+                                                ->orWhereNull('work_orders.assigned_group_id')
+                                                ->orWhere('work_orders.assigned_group_id', $user->group_id));
+                                        }
                                     });
                                 }
                             });

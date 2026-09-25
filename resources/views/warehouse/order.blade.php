@@ -244,6 +244,7 @@
         transition: opacity .22s cubic-bezier(.4, 0, .2, 1);
     }
     #manual-add-panel {
+        pointer-events: auto;
         opacity: 0;
         transform: translateY(18px) scale(.96);
         transition: opacity .22s cubic-bezier(.4, 0, .2, 1), transform .32s cubic-bezier(.16, 1, .3, 1);
@@ -258,7 +259,7 @@
 <div id="manual-add-modal" class="{{ $openManualAdd ? 'is-open' : 'hidden' }}"
     role="dialog" aria-modal="true" aria-labelledby="manual-add-title" data-open="{{ $openManualAdd ? '1' : '0' }}">
     <div id="manual-add-backdrop" data-manual-add-close></div>
-    <div class="flex items-start justify-center p-4 sm:items-center sm:p-6" style="position:relative;z-index:1;min-height:100%;">
+    <div class="flex items-start justify-center p-4 sm:items-center sm:p-6" style="position:relative;z-index:1;min-height:100%;pointer-events:none;">
         <div id="manual-add-panel" class="w-full max-w-md rounded-xl bg-white shadow-lg overflow-y-auto">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                 <h2 id="manual-add-title" class="text-base font-semibold text-slate-900">Create Memo</h2>

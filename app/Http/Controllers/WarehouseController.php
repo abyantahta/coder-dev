@@ -542,6 +542,10 @@ class WarehouseController extends Controller
 
         $received = $qad->getReceivedQtyByLine($partOrder->pr_number);
 
+        if ($qad->lastError()) {
+            return back()->with('error', 'Gagal menghubungi QAD, status penerimaan belum bisa dicek. Coba lagi beberapa saat lagi.');
+        }
+
         $incomplete = [];
         foreach ($partOrder->lines as $i => $line) {
             $qty = $received[$i + 1] ?? 0.0;
@@ -620,6 +624,10 @@ class WarehouseController extends Controller
         abort_unless($partOrder->pr_number, 422, 'Order ini belum punya No. PR.');
 
         $result = $qad->findPurchaseOrder($partOrder->pr_number);
+
+        if (! $result && $qad->lastError()) {
+            return back()->with('error', 'Gagal menghubungi QAD, status PR belum bisa dicek. Coba lagi beberapa saat lagi.');
+        }
 
         if (! $result) {
             return back()->with('success', 'Belum ada respons dari QAD — PR masih menunggu approval.');

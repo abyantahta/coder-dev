@@ -15,6 +15,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class WorkOrderController extends Controller
 {
@@ -159,8 +160,11 @@ class WorkOrderController extends Controller
             'description'          => 'required|string',
             'category'             => 'nullable|string|max:100',
             'target_department_id' => 'required|exists:departments,id',
-            'wo_category_id'       => 'required|exists:wo_categories,id',
+            'wo_category_id'       => ['required', Rule::exists('wo_categories', 'id')
+                ->where('department_id', (int) $request->target_department_id)],
             'attachment'           => 'nullable|file|mimes:pdf,png|max:5120',
+        ], [
+            'wo_category_id.exists' => 'Kategori WO tidak sesuai dengan departemen tujuan.',
         ]);
 
         // Priority is no longer asked for at creation — default to medium.

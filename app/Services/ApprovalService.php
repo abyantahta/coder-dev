@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class ApprovalService
 {
@@ -30,8 +31,24 @@ class ApprovalService
             'requester_review' => $wo->status === 'completed' && $user->id === $wo->requester_id,
             'completion'       => in_array($wo->status, ['assigned_member', 'parts_received', 'rework']) && $user->id === $wo->assigned_member_id,
             'material_check'   => $wo->status === 'assigned_member' && $user->id === $wo->assigned_member_id,
-            default            => $step->actor_role_id !== null && $user->dept_role_id === $step->actor_role_id,
+            default            => $step->actor_role_id !== null && $user->dept_role_id === $step->actor_role_id
+                && $this->withinAssignedGroup($user, $wo, $step),
         };
+    }
+
+    /**
+     * Once a WO is assigned to a group, only that group's head may run the
+     * following assign step — not every user holding the same dept role
+     * (e.g. Group Head B must not assign a Group A WO). Users without a
+     * group (Section Head etc.) are unaffected.
+     */
+    private function withinAssignedGroup(User $user, WorkOrder $wo, ApprovalStep $step): bool
+    {
+        if ($step->step_type !== 'assign' || ! $wo->assigned_group_id || $user->group_id === null) {
+            return true;
+        }
+
+        return (int) $user->group_id === (int) $wo->assigned_group_id;
     }
 
     public function canCancel(User $user, WorkOrder $wo): bool
@@ -272,7 +289,20 @@ class ApprovalService
         }
 
         $request->validate(['member_id' => 'required|integer|exists:users,id']);
-        $member = User::findOrFail($request->member_id);
+        // Same eligibility as the dropdown in WorkOrderController::show() —
+        // a direct POST must not be able to assign someone from another
+        // department or another group.
+        $member = User::whereKey($request->member_id)
+            ->whereHas('deptRole', fn ($q) => $q
+                ->where('department_id', $wo->target_department_id)
+                ->when($step->assigns_to_role_key, fn ($q2) => $q2->where('key', $step->assigns_to_role_key)))
+            ->when($wo->assigned_group_id, fn ($q) => $q->where('group_id', $wo->assigned_group_id))
+            ->first();
+        if (! $member) {
+            throw ValidationException::withMessages([
+                'member_id' => 'Member yang dipilih tidak termasuk departemen/group WO ini.',
+            ]);
+        }
 
         $isReschedule = $wo->status === 'parts_received';
         // After Section Head received material, skip a second material_check
@@ -356,6 +386,11 @@ class ApprovalService
 
     private function handleRequesterReview(WorkOrder $wo, User $actor, Request $request): void
     {
+        $request->validate([
+            'action'      => 'required|in:approve,rework',
+            'review_note' => 'nullable|string|max:1000',
+        ]);
+
         if ($request->action === 'approve') {
             $score = $wo->calculateScore();
             $wo->update([

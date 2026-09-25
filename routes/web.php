@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\GaPerformanceController;
 use App\Http\Controllers\PerformanceController;
 use App\Http\Controllers\QaController;
 use App\Http\Controllers\WarehouseController;
@@ -39,16 +40,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/work-orders/{workOrder}/approval/forward', [ApprovalController::class, 'forward'])->name('approval.forward');
     Route::post('/work-orders/{workOrder}/approval/cancel',  [ApprovalController::class, 'cancel'])->name('approval.cancel');
 
-    // WO Actions (legacy — kept for backward compat, no longer linked from UI)
-    Route::post('/work-orders/{workOrder}/accept', [WorkOrderController::class, 'accept'])->name('work-orders.accept');
-    Route::post('/work-orders/{workOrder}/reject', [WorkOrderController::class, 'reject'])->name('work-orders.reject');
-    Route::post('/work-orders/{workOrder}/assign-group', [WorkOrderController::class, 'assignGroup'])->name('work-orders.assign-group');
-    Route::post('/work-orders/{workOrder}/assign-member', [WorkOrderController::class, 'assignMember'])->name('work-orders.assign-member');
-    Route::post('/work-orders/{workOrder}/complete', [WorkOrderController::class, 'complete'])->name('work-orders.complete');
-    Route::post('/work-orders/{workOrder}/review', [WorkOrderController::class, 'review'])->name('work-orders.review');
-    Route::post('/work-orders/{workOrder}/cancel', [WorkOrderController::class, 'cancel'])->name('work-orders.cancel');
-    Route::post('/work-orders/{workOrder}/forward', [WorkOrderController::class, 'forward'])->name('work-orders.forward');
-    Route::post('/work-orders/{workOrder}/check-parts', [WorkOrderController::class, 'checkParts'])->name('work-orders.check-parts');
+    // Legacy per-role WO action routes (WorkOrderController accept/reject/
+    // assign*/complete/review/cancel/forward/checkParts, QaController
+    // accept/reject/forward/assignMember/cancel) are intentionally NOT
+    // registered: they only checked the legacy `role` string, not the
+    // department/step, so e.g. an MTC Unit Head could accept or reject a QA
+    // WO by URL. Every WO action goes through approval.* above.
 
     // Warehouse MTC — dedicated warehouse dashboard, role-gated
     Route::middleware('role:warehouse_mtc,section_head,ga_section_head')->prefix('warehouse')->name('warehouse.')->group(function () {
@@ -80,15 +77,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/sync', [ItemMasterController::class, 'sync'])->middleware('throttle:3,1')->name('sync');
     });
 
-    // QA Actions
-    Route::middleware('role:qa_group_head,qa_section_head')->prefix('qa')->name('qa.')->group(function () {
-        Route::post('/work-orders/{workOrder}/accept',        [QaController::class, 'accept'])->name('accept');
-        Route::post('/work-orders/{workOrder}/reject',        [QaController::class, 'reject'])->name('reject');
-        Route::post('/work-orders/{workOrder}/forward',       [QaController::class, 'forward'])->name('forward');
-        Route::post('/work-orders/{workOrder}/assign-member', [QaController::class, 'assignMember'])->name('assign-member');
-        Route::post('/work-orders/{workOrder}/cancel',        [QaController::class, 'cancel'])->name('cancel');
-    });
-
     // Performance (maintenance staff only)
     Route::get('/performance', [PerformanceController::class, 'index'])
         ->name('performance.index')
@@ -98,6 +86,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/performance/qa', [QaController::class, 'performance'])
         ->name('performance.qa')
         ->middleware('role:qa_group_head,qa_section_head');
+
+    // Performance GA
+    Route::get('/performance/ga', [GaPerformanceController::class, 'index'])
+        ->name('performance.ga')
+        ->middleware('role:ga_section_head');
 
     // Admin — User Management (Section Head MTC/QA/GA, each scoped to own department)
     Route::middleware('role:section_head,qa_section_head,ga_section_head')->prefix('admin')->name('admin.')->group(function () {
@@ -156,6 +149,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/units/{unit}', [UnitManagementController::class, 'update'])->name('units.update');
         Route::delete('/units/{unit}', [UnitManagementController::class, 'destroy'])->name('units.destroy');
         Route::post('/units/{unit}/groups', [UnitManagementController::class, 'storeGroup'])->name('units.groups.store');
+        Route::put('/groups/{group}', [UnitManagementController::class, 'updateGroup'])->name('groups.update');
         Route::delete('/groups/{group}', [UnitManagementController::class, 'destroyGroup'])->name('groups.destroy');
     });
 });

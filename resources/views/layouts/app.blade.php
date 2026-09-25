@@ -137,6 +137,19 @@
             </a>
             @endif
 
+            {{-- GA nav --}}
+            @if ($user->isGaSectionHead())
+            <div class="{{ $navLabel }}">GA</div>
+            <a href="{{ route('performance.ga') }}"
+                class="{{ $navBase }} {{ request()->routeIs('performance.ga') ? $navOn : $navOff }}">
+                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Performance GA
+            </a>
+            @endif
+
             {{-- Performance (maintenance only) --}}
             @if ($user->isMaintenanceStaff() && !$user->isMember())
             <a href="{{ route('performance.index') }}"

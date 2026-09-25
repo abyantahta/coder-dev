@@ -94,8 +94,9 @@ class SuperAdminController extends Controller
     public function users(Request $request)
     {
         $users = User::with(['dept', 'deptRole'])
-            ->when($request->search, fn ($q) => $q->where('name', 'like', "%{$request->search}%")
-                ->orWhere('email', 'like', "%{$request->search}%"))
+            ->when($request->search, fn ($q) => $q->where(fn ($inner) => $inner
+                ->where('name', 'like', "%{$request->search}%")
+                ->orWhere('email', 'like', "%{$request->search}%")))
             ->when($request->dept_id, fn ($q) => $q->where('department_id', $request->dept_id))
             ->orderBy('name')
             ->paginate(20)

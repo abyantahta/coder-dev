@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
+use App\Models\DepartmentRole;
 use App\Models\MaintenanceGroup;
 use App\Models\MaintenanceUnit;
 use App\Models\User;
@@ -29,6 +31,33 @@ class UserManagementController extends Controller
         if ($actor->isQaSectionHead()) return User::where('department', 'QA');
         if ($actor->isGaSectionHead()) return User::where('department', 'GA');
         return User::whereNotIn('department', ['QA', 'GA']);
+    }
+
+    /**
+     * The approval engine (ApprovalService::canAct, the assign dropdowns)
+     * works off department_id + dept_role_id, not the legacy `role` /
+     * `department` strings — so a user saved here without them could log
+     * in but never be assigned or act on a step. Derive both from the
+     * actor's department and the chosen legacy role.
+     */
+    private function engineFields(User $actor, string $role): array
+    {
+        $slug = $actor->isQaSectionHead() ? 'qa' : ($actor->isGaSectionHead() ? 'ga' : 'maintenance');
+        $departmentId = Department::where('slug', $slug)->value('id');
+
+        $key = match ($role) {
+            'qa_section_head', 'ga_section_head' => 'section_head',
+            'qa_group_head' => 'group_head',
+            'qa_member' => 'member',
+            'member' => $slug === 'ga' ? 'staff' : 'member',
+            default => $role,
+        };
+
+        $deptRoleId = $departmentId
+            ? DepartmentRole::where('department_id', $departmentId)->where('key', $key)->value('id')
+            : null;
+
+        return ['department_id' => $departmentId, 'dept_role_id' => $deptRoleId];
     }
 
     private function unitsFor(User $actor)
@@ -75,6 +104,7 @@ class UserManagementController extends Controller
 
         User::create([
             ...$validated,
+            ...$this->engineFields($actor, $validated['role']),
             'password' => Hash::make($validated['password']),
         ]);
 
@@ -118,7 +148,7 @@ class UserManagementController extends Controller
             $validated['password'] = Hash::make($request->password);
         }
 
-        $user->update($validated);
+        $user->update([...$validated, ...$this->engineFields($actor, $validated['role'])]);
 
         return redirect()->route('admin.users.index')->with('success', 'User berhasil diupdate.');
     }
@@ -127,6 +157,10 @@ class UserManagementController extends Controller
     {
         $actor = Auth::user();
         abort_unless($this->scopeQuery($actor)->whereKey($user->id)->exists(), 403);
+
+        if ($user->submittedWorkOrders()->exists() || $user->assignedWorkOrders()->exists()) {
+            return back()->with('error', 'User tidak bisa dihapus karena masih ada WO terkait.');
+        }
 
         $user->delete();
         return back()->with('success', 'User berhasil dihapus.');

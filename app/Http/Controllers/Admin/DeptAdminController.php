@@ -8,8 +8,10 @@ use App\Models\Department;
 use App\Models\DepartmentQadConfig;
 use App\Models\DepartmentRole;
 use App\Models\WoCategory;
+use App\Models\WorkOrder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class DeptAdminController extends Controller
@@ -182,7 +184,7 @@ class DeptAdminController extends Controller
         $validated = $request->validate([
             'step_order'         => 'required|integer|min:1',
             'name'               => 'required|string|max:100',
-            'actor_role_id'      => 'nullable|exists:department_roles,id',
+            'actor_role_id'      => ['nullable', Rule::exists('department_roles', 'id')->where('department_id', $dept->id)],
             'step_type'          => 'required|in:standard,spare_parts_check,assign,material_check,completion,requester_review',
             'can_reject'         => 'boolean',
             'can_forward'        => 'boolean',
@@ -209,11 +211,12 @@ class DeptAdminController extends Controller
     public function updateStep(Request $request, ApprovalStep $step)
     {
         $this->authorizeStep($step);
+        $dept = $this->dept();
 
         $validated = $request->validate([
             'step_order'         => 'required|integer|min:1',
             'name'               => 'required|string|max:100',
-            'actor_role_id'      => 'nullable|exists:department_roles,id',
+            'actor_role_id'      => ['nullable', Rule::exists('department_roles', 'id')->where('department_id', $dept->id)],
             'step_type'          => 'required|in:standard,spare_parts_check,assign,material_check,completion,requester_review',
             'can_reject'         => 'boolean',
             'can_forward'        => 'boolean',
@@ -239,6 +242,16 @@ class DeptAdminController extends Controller
     public function destroyStep(ApprovalStep $step)
     {
         $this->authorizeStep($step);
+
+        $activeWo = WorkOrder::where('target_department_id', $step->department_id)
+            ->where('current_step_order', $step->step_order)
+            ->whereNotIn('status', ['finished', 'cancelled', 'rejected'])
+            ->value('wo_number');
+
+        if ($activeWo) {
+            return back()->with('error', "Step '{$step->name}' tidak bisa dihapus karena masih ada WO aktif di step ini (mis. {$activeWo}).");
+        }
+
         $step->delete();
 
         return back()->with('success', "Step berhasil dihapus.");
@@ -252,11 +265,21 @@ class DeptAdminController extends Controller
             'order.*' => 'integer|exists:approval_steps,id',
         ]);
 
-        foreach ($request->order as $pos => $stepId) {
-            ApprovalStep::where('id', $stepId)
-                ->where('department_id', $dept->id)
-                ->update(['step_order' => $pos + 1]);
-        }
+        // (department_id, step_order) is unique, so writing the new orders
+        // one by one collides as soon as two steps swap places. Park the
+        // affected steps on temporary high numbers first, then write the
+        // final positions — all in one transaction.
+        DB::transaction(function () use ($request, $dept) {
+            ApprovalStep::where('department_id', $dept->id)
+                ->whereIn('id', $request->order)
+                ->increment('step_order', 1000);
+
+            foreach ($request->order as $pos => $stepId) {
+                ApprovalStep::where('id', $stepId)
+                    ->where('department_id', $dept->id)
+                    ->update(['step_order' => $pos + 1]);
+            }
+        });
 
         return response()->json(['ok' => true]);
     }

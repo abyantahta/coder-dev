@@ -17,6 +17,7 @@
         transition: opacity .22s cubic-bezier(.4, 0, .2, 1);
     }
     #standalone-create-panel {
+        pointer-events: auto;
         max-height: min(90vh, 640px);
         opacity: 0;
         transform: translateY(18px) scale(.96);
@@ -44,7 +45,7 @@
     data-open="{{ $openStandaloneCreate ? '1' : '0' }}">
     <div id="standalone-create-backdrop" data-standalone-create-close></div>
     <div class="flex items-start justify-center p-4 sm:items-center sm:p-6"
-        style="position:relative;z-index:1;min-height:100%;">
+        style="position:relative;z-index:1;min-height:100%;pointer-events:none;">
         <div id="standalone-create-panel" class="w-full max-w-md rounded-xl bg-white shadow-lg overflow-y-auto">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
                 <h2 id="standalone-create-title" class="text-base font-semibold text-slate-900">Buat PR Mandiri</h2>

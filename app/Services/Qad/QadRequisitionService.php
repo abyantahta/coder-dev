@@ -28,6 +28,14 @@ class QadRequisitionService
 
     private int $timeout;
 
+    /** Connection/transport error from the last read lookup, if any — lets callers tell "QAD unreachable" apart from "no data yet". */
+    private ?string $lastError = null;
+
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
     public function __construct(private readonly QadSoapClient $wsa)
     {
         $this->url = config('services.qad_soap.url', '');
@@ -152,11 +160,13 @@ class QadRequisitionService
             return null;
         }
 
+        $this->lastError = null;
         $xml = $this->buildPrToPoXml($rqmNbr, $namespace);
         $response = $this->wsa->call($xml);
 
         if ($response['is_error']) {
             Log::warning('QAD WSA findPurchaseOrder failed', ['rqmNbr' => $rqmNbr, 'message' => $response['message'] ?? null]);
+            $this->lastError = $response['message'] ?? 'QAD tidak merespons';
 
             return null;
         }
@@ -238,11 +248,13 @@ class QadRequisitionService
             return [];
         }
 
+        $this->lastError = null;
         $xml = $this->buildPrToPoXml($rqmNbr, $namespace);
         $response = $this->wsa->call($xml);
 
         if ($response['is_error']) {
             Log::warning('QAD WSA getReceivedQtyByLine failed', ['rqmNbr' => $rqmNbr, 'message' => $response['message'] ?? null]);
+            $this->lastError = $response['message'] ?? 'QAD tidak merespons';
 
             return [];
         }

@@ -40,25 +40,80 @@
                     {{ $unit->users()->count() }} user · {{ $unit->groups->count() }} group
                 </p>
             </div>
-            <form method="POST" action="{{ route('admin.units.destroy', $unit) }}"
-                onsubmit="return confirm('Hapus unit {{ $unit->name }}?')">
-                @csrf @method('DELETE')
-                <button type="submit" class="text-xs text-red-500 hover:text-red-700">Hapus Unit</button>
-            </form>
+            <div class="flex items-center gap-4 shrink-0">
+                <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-edit-toggle="unit-{{ $unit->id }}">Edit Unit</button>
+                <form method="POST" action="{{ route('admin.units.destroy', $unit) }}"
+                    onsubmit="return confirm('Hapus unit {{ $unit->name }}?')">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="text-xs text-red-500 hover:text-red-700">Hapus Unit</button>
+                </form>
+            </div>
         </div>
+
+        {{-- Edit unit (inline) --}}
+        @php $editingUnit = old('_edit') === 'unit-'.$unit->id; @endphp
+        <form method="POST" action="{{ route('admin.units.update', $unit) }}" data-edit-form="unit-{{ $unit->id }}"
+            class="{{ $editingUnit ? '' : 'hidden' }} flex flex-wrap gap-3 items-end bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+            @csrf @method('PUT')
+            <input type="hidden" name="_edit" value="unit-{{ $unit->id }}">
+            <div class="flex-1 min-w-[10rem]">
+                <label class="block text-xs font-medium text-slate-600 mb-1">Nama Unit</label>
+                <input type="text" name="name" required value="{{ $editingUnit ? old('name') : $unit->name }}"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                @if ($editingUnit) @error('name') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror @endif
+            </div>
+            <div class="flex-1 min-w-[10rem]">
+                <label class="block text-xs font-medium text-slate-600 mb-1">Deskripsi</label>
+                <input type="text" name="description" value="{{ $editingUnit ? old('description') : $unit->description }}" placeholder="Opsional"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex items-center gap-3">
+                <button type="button" class="text-sm text-slate-500 hover:text-slate-700" data-edit-toggle="unit-{{ $unit->id }}">Batal</button>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold px-4 py-2 transition">Simpan</button>
+            </div>
+        </form>
 
         {{-- Groups in this unit --}}
         <div class="space-y-2 mb-4">
             @foreach ($unit->groups as $group)
-            <div class="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5">
-                <div>
-                    <span class="text-sm font-medium text-slate-700">{{ $group->name }}</span>
-                    <span class="text-xs text-slate-400 ml-2">{{ $group->members()->count() }} member</span>
+            @php $editingGroup = old('_edit') === 'group-'.$group->id; @endphp
+            <div class="bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-sm font-medium text-slate-700">{{ $group->name }}</span>
+                        <span class="text-xs text-slate-400 ml-2">{{ $group->members()->count() }} member</span>
+                        @if ($group->description)
+                        <p class="text-xs text-slate-500 mt-0.5">{{ $group->description }}</p>
+                        @endif
+                    </div>
+                    <div class="flex items-center gap-4 shrink-0">
+                        <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-edit-toggle="group-{{ $group->id }}">Edit</button>
+                        <form method="POST" action="{{ route('admin.groups.destroy', $group) }}"
+                            onsubmit="return confirm('Hapus group {{ $group->name }}?')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="text-xs text-red-500 hover:text-red-700">Hapus</button>
+                        </form>
+                    </div>
                 </div>
-                <form method="POST" action="{{ route('admin.groups.destroy', $group) }}"
-                    onsubmit="return confirm('Hapus group {{ $group->name }}?')">
-                    @csrf @method('DELETE')
-                    <button type="submit" class="text-xs text-red-500 hover:text-red-700">Hapus</button>
+                <form method="POST" action="{{ route('admin.groups.update', $group) }}" data-edit-form="group-{{ $group->id }}"
+                    class="{{ $editingGroup ? '' : 'hidden' }} flex flex-wrap gap-3 items-end mt-3 pt-3 border-t border-slate-200">
+                    @csrf @method('PUT')
+                    <input type="hidden" name="_edit" value="group-{{ $group->id }}">
+                    <div class="flex-1 min-w-[10rem]">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Nama Group</label>
+                        <input type="text" name="name" required value="{{ $editingGroup ? old('name') : $group->name }}"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        @if ($editingGroup) @error('name') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror @endif
+                    </div>
+                    <div class="flex-1 min-w-[10rem]">
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Deskripsi</label>
+                        <input type="text" name="description" value="{{ $editingGroup ? old('description') : $group->description }}" placeholder="Opsional"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button" class="text-sm text-slate-500 hover:text-slate-700" data-edit-toggle="group-{{ $group->id }}">Batal</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold px-4 py-2 transition">Simpan</button>
+                    </div>
                 </form>
             </div>
             @endforeach
@@ -86,3 +141,19 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.querySelectorAll('[data-edit-toggle]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var form = document.querySelector('[data-edit-form="' + btn.dataset.editToggle + '"]');
+            if (!form) return;
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                var input = form.querySelector('input[name="name"]');
+                if (input) input.focus();
+            }
+        });
+    });
+</script>
+@endpush

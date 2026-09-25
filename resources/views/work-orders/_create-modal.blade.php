@@ -22,6 +22,7 @@
         transition: opacity .22s cubic-bezier(.4, 0, .2, 1);
     }
     #wo-create-panel {
+        pointer-events: auto;
         max-height: min(90vh, 880px);
         opacity: 0;
         transform: translateY(18px) scale(.96);
@@ -49,7 +50,7 @@
     data-open="{{ $openCreateWo ? '1' : '0' }}">
     <div id="wo-create-backdrop" data-wo-create-close></div>
     <div class="flex items-start justify-center p-4 sm:items-center sm:p-6"
-        style="position:relative;z-index:1;min-height:100%;">
+        style="position:relative;z-index:1;min-height:100%;pointer-events:none;">
         <div id="wo-create-panel" class="w-full max-w-2xl rounded-xl bg-white shadow-lg overflow-y-auto">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-6 py-4">
                 <h2 id="wo-create-title" class="text-base font-semibold text-slate-900">Buat Work Order Baru</h2>
