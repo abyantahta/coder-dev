@@ -434,7 +434,7 @@ XML;
         $config = DepartmentQadConfig::where('department_id', $order->targetDepartmentId())->first();
 
         if (! $config || ! $config->site_code || ! $config->location) {
-            return ['success' => false, 'message' => 'Konfigurasi QAD (site/location) untuk departemen ini belum diisi.'];
+            return ['success' => false, 'message' => 'Site Code / Location (Receiving) untuk departemen ini belum diisi. Minta Section Head departemen mengisinya di Dept Admin → Konfigurasi QAD.'];
         }
 
         $xml = $this->buildReceivePurchaseOrderXml($poNumber, $lines, $config, $actor);

@@ -300,6 +300,7 @@ class DeptAdminController extends Controller
 
         $validated = $request->validate([
             'site_code' => 'required|string|max:20',
+            'location' => 'nullable|string|max:20',
             'buyer_code' => 'nullable|string|max:20',
             'approver_code' => 'nullable|string|max:20',
             'end_user_id' => 'nullable|string|max:20',

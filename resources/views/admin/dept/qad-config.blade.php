@@ -31,6 +31,20 @@
         </div>
 
         <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Location (Receiving)</label>
+            <input type="text" name="location" value="{{ old('location', $config->location) }}"
+                class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="mis. RAWMAT">
+            <p class="mt-1 text-xs text-slate-500">
+                Lokasi gudang QAD tempat barang dicatat saat <strong>Receiving</strong>. Wajib diisi agar penerimaan barang
+                departemen ini bisa dicatat ke QAD; tidak dipakai untuk pembuatan PR.
+            </p>
+            @if (! $config->location)
+            <p class="mt-1 text-xs text-amber-600 font-medium">Belum diisi — Receiving untuk departemen ini akan ditolak.</p>
+            @endif
+        </div>
+
+        <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">Buyer Code</label>
             <input type="text" name="buyer_code" value="{{ old('buyer_code', $config->buyer_code) }}"
                 class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
