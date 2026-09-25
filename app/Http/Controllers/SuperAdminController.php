@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class SuperAdminController extends Controller
 {
@@ -124,9 +125,9 @@ class SuperAdminController extends Controller
 
         $data['password']     = Hash::make($data['password']);
         $data['is_superadmin'] = $request->boolean('is_superadmin');
-        $data['department']   = optional(Department::find($data['department_id']))->name ?? 'IT';
+        $data['department']   = optional(Department::find($data['department_id'] ?? null))->name ?? 'IT';
 
-        User::create($data);
+        User::create([...$data, ...$this->qadCredentials($request, null)]);
 
         return redirect()->route('superadmin.users.index')->with('success', "User {$data['name']} berhasil dibuat.");
     }
@@ -143,18 +144,61 @@ class SuperAdminController extends Controller
             'is_superadmin' => 'boolean',
         ]);
 
-        if ($data['password']) {
+        if (! empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
             unset($data['password']);
         }
 
         $data['is_superadmin'] = $request->boolean('is_superadmin');
-        $data['department']    = optional(Department::find($data['department_id']))->name ?? ($user->department ?? 'IT');
+        $data['department']    = optional(Department::find($data['department_id'] ?? null))->name ?? ($user->department ?? 'IT');
 
-        $user->update($data);
+        $user->update([...$data, ...$this->qadCredentials($request, $user)]);
 
         return redirect()->route('superadmin.users.index')->with('success', "User {$user->name} berhasil diupdate.");
+    }
+
+    /**
+     * The user's own QAD login, used to post goods receipts (SDI_eKanbanGR)
+     * under their name. The password is write-only: left blank it keeps
+     * whatever is stored (never echoed back to the form); `qad_clear`
+     * removes the login entirely. Stored encrypted by the User model cast.
+     */
+    private function qadCredentials(Request $request, ?User $user): array
+    {
+        $request->validate([
+            'qad_username' => 'nullable|string|max:50',
+            'qad_password' => 'nullable|string|max:100',
+        ]);
+
+        if ($request->boolean('qad_clear')) {
+            return ['qad_username' => null, 'qad_password' => null];
+        }
+
+        // Field not part of this request at all → leave the stored login alone.
+        if (! $request->exists('qad_username')) {
+            return [];
+        }
+
+        $username = trim((string) $request->qad_username);
+        $password = (string) $request->qad_password;
+
+        if ($username === '') {
+            if ($password !== '') {
+                throw ValidationException::withMessages(['qad_username' => 'Username QAD wajib diisi jika password QAD diisi.']);
+            }
+
+            // Username emptied → no QAD login.
+            return ['qad_username' => null, 'qad_password' => null];
+        }
+
+        if ($password === '' && empty($user?->qad_password)) {
+            throw ValidationException::withMessages(['qad_password' => 'Password QAD wajib diisi untuk login QAD baru.']);
+        }
+
+        return $password === ''
+            ? ['qad_username' => $username]
+            : ['qad_username' => $username, 'qad_password' => $password];
     }
 
     public function destroyUser(User $user): RedirectResponse

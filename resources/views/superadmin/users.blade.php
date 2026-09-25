@@ -110,6 +110,21 @@
                     <span>IT Superadmin <span class="text-xs text-slate-400">(akses penuh ke semua dept)</span></span>
                 </label>
             </div>
+            <div class="col-span-2 border-t border-slate-200 pt-4">
+                <div class="text-sm font-medium text-slate-700">Login QAD <span class="text-xs font-normal text-slate-400">(opsional — hanya untuk user yang melakukan Receiving barang di Warehouse)</span></div>
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Username QAD</label>
+                        <input type="text" name="qad_username" value="{{ old('qad_username') }}" maxlength="50" autocomplete="off"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">Password QAD</label>
+                        <input type="password" name="qad_password" maxlength="100" autocomplete="new-password"
+                            class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="flex gap-3 mt-5">
             <button type="submit" class="bg-violet-600 hover:bg-violet-700 text-white font-semibold px-5 py-2 rounded-lg text-sm transition">
@@ -145,9 +160,14 @@
                     <td class="px-4 py-3 text-slate-600 text-xs">{{ $u->dept?->name ?? ($u->department ?? '—') }}</td>
                     <td class="px-4 py-3 text-slate-600 text-xs">{{ $u->deptRole?->name ?? '—' }}</td>
                     <td class="px-4 py-3">
-                        @if ($u->is_superadmin)
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold">SuperAdmin</span>
-                        @endif
+                        <div class="flex flex-wrap gap-1">
+                            @if ($u->is_superadmin)
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-semibold">SuperAdmin</span>
+                            @endif
+                            @if ($u->canReceiveInQad())
+                            <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold" title="Login QAD: {{ $u->qad_username }}">QAD Receiving</span>
+                            @endif
+                        </div>
                     </td>
                     <td class="px-4 py-3 text-right">
                         <button onclick="document.getElementById('edit-user-{{ $u->id }}').classList.toggle('hidden')"
@@ -161,11 +181,20 @@
                     </td>
                 </tr>
                 {{-- Inline Edit Row --}}
-                <tr id="edit-user-{{ $u->id }}" class="hidden bg-violet-50 border-t border-violet-100">
+                @php $editOpen = $errors->any() && old('_form') === 'edit_user_'.$u->id; @endphp
+                <tr id="edit-user-{{ $u->id }}" class="{{ $editOpen ? '' : 'hidden' }} bg-violet-50 border-t border-violet-100">
                     <td colspan="6" class="px-4 py-5">
                         <h4 class="text-sm font-semibold text-slate-700 mb-3">Edit: {{ $u->name }}</h4>
+                        @if ($editOpen)
+                        <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 text-sm text-red-700">
+                            <ul class="list-disc list-inside space-y-0.5">
+                                @foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach
+                            </ul>
+                        </div>
+                        @endif
                         <form method="POST" action="{{ route('superadmin.users.update', $u) }}">
                             @csrf @method('PUT')
+                            <input type="hidden" name="_form" value="edit_user_{{ $u->id }}">
                             <div class="grid grid-cols-3 gap-3">
                                 <div>
                                     <label class="block text-xs font-medium text-slate-600 mb-1">Nama *</label>
@@ -220,6 +249,39 @@
                                             class="rounded border-slate-300 text-violet-600">
                                         IT Superadmin
                                     </label>
+                                </div>
+                                <div class="col-span-3 border-t border-violet-200 pt-3">
+                                    <div class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                                        Login QAD <span class="text-xs font-normal text-slate-400">(untuk Receiving barang di Warehouse)</span>
+                                        @if ($u->canReceiveInQad())
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">Tersimpan</span>
+                                        @else
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Belum ada</span>
+                                        @endif
+                                    </div>
+                                    <div class="grid grid-cols-3 gap-3 mt-2 items-end">
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-600 mb-1">Username QAD</label>
+                                            <input type="text" name="qad_username" maxlength="50" autocomplete="off"
+                                                value="{{ $editOpen ? old('qad_username') : $u->qad_username }}"
+                                                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-slate-600 mb-1">
+                                                Password QAD
+                                                <span class="text-slate-400">{{ $u->qad_password ? '(kosongkan = tidak ganti)' : '' }}</span>
+                                            </label>
+                                            <input type="password" name="qad_password" maxlength="100" autocomplete="new-password"
+                                                placeholder="{{ $u->qad_password ? '•••••••• (tersimpan)' : '' }}"
+                                                class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
+                                        </div>
+                                        @if ($u->canReceiveInQad())
+                                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer pb-1.5">
+                                            <input type="checkbox" name="qad_clear" value="1" class="rounded border-slate-300 text-red-600">
+                                            Hapus login QAD
+                                        </label>
+                                        @endif
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex gap-3 mt-4">
