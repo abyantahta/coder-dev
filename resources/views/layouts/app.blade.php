@@ -61,32 +61,58 @@
                 Dashboard
             </a>
 
-            {{-- Work Orders --}}
-            @php $woNavOn = request()->routeIs('work-orders.*') && !request()->routeIs('work-orders.create'); @endphp
-            <a href="{{ route('work-orders.index', ($woInboxCount ?? 0) > 0 ? ['tab' => 'inbox'] : []) }}"
-                class="{{ $navBase }} {{ $woNavOn ? $navOn : $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span class="flex-1">Work Orders</span>
-                @if (($woInboxCount ?? 0) > 0)
-                <span class="min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center
-                    {{ $woNavOn ? 'bg-white/20 text-white' : 'bg-ember text-white' }}">
-                    {{ $woInboxCount > 99 ? '99+' : $woInboxCount }}
-                </span>
-                @endif
-            </a>
-
-            {{-- Buat WO: popup di halaman yang sedang dibuka --}}
-            <a href="{{ route('work-orders.create') }}" id="nav-wo-create"
-                class="js-open-wo-create {{ $navBase }} {{ $navOff }}">
-                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 4v16m8-8H4" />
-                </svg>
-                Buat Work Order
-            </a>
+            {{-- Work Orders — submenu --}}
+            @php
+                $woNavOn = request()->routeIs('work-orders.*') && !request()->routeIs('work-orders.create');
+                // Inbox already includes my own WOs waiting for my review.
+                $woBadgeTotal = $woInboxCount ?? 0;
+                $subOn = 'font-medium text-slate-900 bg-slate-100';
+                $subOff = 'text-slate-500 hover:text-slate-800 hover:bg-slate-50';
+                $subBadge = 'min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center bg-ember text-white';
+            @endphp
+            <details class="group" {{ $woNavOn ? 'open' : '' }}>
+                <summary class="{{ $navBase }} {{ $woNavOn ? $navOn : $navOff }} cursor-pointer list-none flex items-center justify-between">
+                    <span class="flex items-center gap-3">
+                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Work Orders
+                    </span>
+                    <span class="flex items-center gap-2">
+                        @if ($woBadgeTotal > 0)
+                        <span class="min-w-[1.25rem] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center group-open:hidden
+                            {{ $woNavOn ? 'bg-white/20 text-white' : 'bg-ember text-white' }}">
+                            {{ $woBadgeTotal > 99 ? '99+' : $woBadgeTotal }}
+                        </span>
+                        @endif
+                        <svg class="w-4 h-4 shrink-0 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </span>
+                </summary>
+                <div class="mt-1 ml-8 space-y-0.5">
+                    <a href="{{ route('work-orders.index', ($woInboxCount ?? 0) > 0 ? ['tab' => 'inbox'] : []) }}"
+                        class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('work-orders.index') || request()->routeIs('work-orders.show') ? $subOn : $subOff }}">
+                        Daftar WO
+                        @if (($woInboxCount ?? 0) > 0)
+                        <span class="{{ $subBadge }}" title="Perlu tindakan kamu">{{ $woInboxCount > 99 ? '99+' : $woInboxCount }}</span>
+                        @endif
+                    </a>
+                    <a href="{{ route('work-orders.requested') }}"
+                        class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('work-orders.requested') ? $subOn : $subOff }}">
+                        WO Saya Kirim
+                        @if (($woRequestedReviewCount ?? 0) > 0)
+                        <span class="{{ $subBadge }}" title="Menunggu review kamu">{{ $woRequestedReviewCount }}</span>
+                        @endif
+                    </a>
+                    {{-- Buat WO: popup di halaman yang sedang dibuka --}}
+                    <a href="{{ route('work-orders.create') }}" id="nav-wo-create"
+                        class="js-open-wo-create block px-3 py-1.5 rounded-lg text-sm {{ $subOff }}">
+                        + Buat Work Order
+                    </a>
+                </div>
+            </details>
 
             {{-- Warehouse (MTC staff / Section Head, including GA SH) — submenu --}}
             @if ($user->canActAsWarehouse())

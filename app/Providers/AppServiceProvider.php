@@ -30,6 +30,11 @@ class AppServiceProvider extends ServiceProvider
                 ? WorkOrder::visibleTo($user)->waitingOn($user)->count()
                 : 0);
 
+            // "WO Saya Kirim" badge: my own WOs that are done and wait for my review.
+            $view->with('woRequestedReviewCount', $user
+                ? WorkOrder::where('requester_id', $user->id)->where('status', 'completed')->count()
+                : 0);
+
             if (! $user) {
                 $view->with('woCreateDepartments', collect());
                 $view->with('woCreateCategoriesByDept', collect());

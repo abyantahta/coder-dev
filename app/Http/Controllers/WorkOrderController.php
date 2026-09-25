@@ -61,6 +61,74 @@ class WorkOrderController extends Controller
         ));
     }
 
+    /** Status groups on the "WO Saya Kirim" page, from the requester's point of view. */
+    private const REQUESTED_GROUPS = [
+        'pending'  => ['pending'],
+        'review'   => ['completed'],
+        'finished' => ['finished'],
+        'closed'   => ['rejected', 'cancelled'],
+    ];
+
+    /**
+     * Everything the current user has sent out as requester — regardless
+     * of their own role/department — so they can track and follow up on
+     * it separately from the WOs they receive.
+     */
+    public function requested(Request $request)
+    {
+        $user = Auth::user();
+
+        $base = WorkOrder::where('requester_id', $user->id);
+
+        if ($request->search) {
+            $base->where(fn ($q) => $q
+                ->where('title', 'like', '%'.$request->search.'%')
+                ->orWhere('wo_number', 'like', '%'.$request->search.'%'));
+        }
+        if ($request->dept) {
+            $base->where('target_department_id', $request->dept);
+        }
+        $from = $this->parseFilterDate($request->date_from);
+        $to = $this->parseFilterDate($request->date_to);
+        if ($from && $to && $from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+        if ($from) { $base->whereDate('created_at', '>=', $from->toDateString()); }
+        if ($to) { $base->whereDate('created_at', '<=', $to->toDateString()); }
+
+        $grouped = array_merge(...array_values(self::REQUESTED_GROUPS));
+        $counts = [
+            'all'      => (clone $base)->count(),
+            'process'  => (clone $base)->whereNotIn('status', $grouped)->count(),
+            'overdue'  => (clone $base)->active()->whereNotNull('deadline')->where('deadline', '<', now())->count(),
+        ];
+        foreach (self::REQUESTED_GROUPS as $key => $statuses) {
+            $counts[$key] = (clone $base)->whereIn('status', $statuses)->count();
+        }
+
+        $group = array_key_exists($request->group, self::REQUESTED_GROUPS) || $request->group === 'process'
+            ? $request->group
+            : 'all';
+
+        $query = (clone $base)->with(['targetDepartment', 'woCategory', 'assignedMember', 'assignedGroup']);
+        if ($group === 'process') {
+            $query->whereNotIn('status', $grouped);
+        } elseif ($group !== 'all') {
+            $query->whereIn('status', self::REQUESTED_GROUPS[$group]);
+        }
+
+        $wos = $query
+            // What needs the requester's attention first: review, then pending.
+            ->orderByRaw("CASE status WHEN 'completed' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END")
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        $departments = Department::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+
+        return view('work-orders.requested', compact('wos', 'counts', 'group', 'departments'));
+    }
+
     private function applyListingOrder($query)
     {
         return $query

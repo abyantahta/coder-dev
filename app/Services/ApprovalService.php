@@ -56,6 +56,10 @@ class ApprovalService
         if (in_array($wo->status, ['finished', 'cancelled', 'rejected'])) return false;
         if (!$wo->target_department_id) return false;
 
+        // The requester may withdraw their own WO as long as the target
+        // department hasn't picked it up yet.
+        if ($wo->status === 'pending' && $user->id === $wo->requester_id) return true;
+
         if ($user->isDeptSuperuser() && $user->department_id === $wo->target_department_id) return true;
 
         $firstStep = ApprovalStep::where('department_id', $wo->target_department_id)

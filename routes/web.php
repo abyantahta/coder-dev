@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/work-orders', [WorkOrderController::class, 'index'])->name('work-orders.index');
     Route::get('/work-orders/create', [WorkOrderController::class, 'create'])->name('work-orders.create');
     Route::post('/work-orders', [WorkOrderController::class, 'store'])->name('work-orders.store');
+    Route::get('/work-orders/requested', [WorkOrderController::class, 'requested'])->name('work-orders.requested');
     Route::get('/work-orders/{workOrder}', [WorkOrderController::class, 'show'])->name('work-orders.show');
 
     // Approval engine (new dynamic system)
