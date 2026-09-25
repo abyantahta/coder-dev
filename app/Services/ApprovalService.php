@@ -347,12 +347,18 @@ class ApprovalService
             return;
         }
 
+        // Unscheduled assign: the assigner chooses whether the category
+        // leadtime counts working days (Sat/Sun skipped — the default) or
+        // plain calendar days.
+        $request->validate(['leadtime_mode' => 'nullable|in:working,calendar']);
+        $calendarDays = $request->leadtime_mode === 'calendar';
+
         // If the next step checks material availability, the leadtime
         // hasn't started yet — defer the deadline to handleMaterialCheck()
         // / onPartsReceived() instead of setting it here.
         $deadline = $next?->step_type === 'material_check'
             ? null
-            : $this->addWorkingDays(now(), $wo->leadtime_days ?? 7);
+            : $this->leadtimeDeadline(now(), $wo->leadtime_days ?? 7, ! $calendarDays);
 
         $wo->update([
             'status'             => 'assigned_member',
@@ -362,8 +368,9 @@ class ApprovalService
             ...$wo->planSnapshot(now(), $deadline, $isReschedule),
         ]);
 
+        $basis = $calendarDays ? 'hari kalender' : 'hari kerja';
         $wo->addHistory($actor->id, 'assigned_member', $deadline
-            ? "Diassign ke {$member->name}. Deadline: {$deadline->format('d M Y')}."
+            ? "Diassign ke {$member->name}. Leadtime {$wo->leadtime_days} {$basis}, deadline: {$deadline->format('d M Y, H:i')}."
             : "Diassign ke {$member->name}. Leadtime akan mulai setelah pengecekan material.");
     }
 
@@ -443,6 +450,12 @@ class ApprovalService
             ->where('step_order', '>', $wo->current_step_order)
             ->orderBy('step_order')
             ->first();
+    }
+
+    /** Deadline for a leadtime of $days, counted in working days (Sat/Sun skipped) or calendar days. */
+    public function leadtimeDeadline(Carbon $from, int $days, bool $workingDays = true): Carbon
+    {
+        return $workingDays ? $this->addWorkingDays($from, $days) : $from->copy()->addDays($days);
     }
 
     private function addWorkingDays(Carbon $date, int $days): Carbon

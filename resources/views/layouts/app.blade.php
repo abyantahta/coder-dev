@@ -425,9 +425,19 @@
             show();
 
             // Disable the clicked submit button so a second click can't fire
-            // a duplicate submission — the browser has already captured this
-            // submission, so disabling now doesn't affect it.
+            // a duplicate submission. The browser builds the form data AFTER
+            // this event, and a disabled button is left out of it — so a
+            // button that carries its own name/value (e.g. review
+            // approve/rework) is copied into a hidden input first, otherwise
+            // the server never learns which button was clicked.
             var submitter = e.submitter || form.querySelector('button[type="submit"]');
+            if (submitter && submitter.name && !submitter.disabled) {
+                var carry = document.createElement('input');
+                carry.type = 'hidden';
+                carry.name = submitter.name;
+                carry.value = submitter.value;
+                form.appendChild(carry);
+            }
             if (submitter && !submitter.disabled) {
                 submitter.disabled = true;
                 submitter.classList.add('opacity-60', 'cursor-wait');

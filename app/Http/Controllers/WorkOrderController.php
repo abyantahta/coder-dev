@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ApprovalStep;
 use App\Models\Department;
 use App\Models\MaintenanceGroup;
 use App\Models\User;
@@ -352,6 +353,25 @@ class WorkOrderController extends Controller
                 )->get();
         }
 
+        // Unscheduled assign: preview the deadline for both leadtime bases
+        // (working vs calendar days) so the assigner sees the exact date
+        // before choosing. Not shown when the next step is a material check
+        // (the leadtime starts later) or for scheduled assigns.
+        $leadtimePreview = null;
+        if ($canAct && $currentStep->step_type === 'assign' && ! $currentStep->requires_schedule
+            && $currentStep->assigns_to_role_key !== 'group_head' && $workOrder->leadtime_days) {
+            $nextType = ApprovalStep::where('department_id', $workOrder->target_department_id)
+                ->where('step_order', '>', $currentStep->step_order)
+                ->orderBy('step_order')
+                ->value('step_type');
+            if ($nextType !== 'material_check') {
+                $leadtimePreview = [
+                    'working'  => $service->leadtimeDeadline(now(), $workOrder->leadtime_days, true),
+                    'calendar' => $service->leadtimeDeadline(now(), $workOrder->leadtime_days, false),
+                ];
+            }
+        }
+
         if ($canAct && $currentStep?->can_forward) {
             $forwardTargets = Department::where('is_active', true)
                 ->where('id', '!=', $workOrder->target_department_id)
@@ -361,7 +381,7 @@ class WorkOrderController extends Controller
         return view('work-orders.show', compact(
             'workOrder', 'user', 'canEdit',
             'currentStep', 'canAct', 'canCancel',
-            'assignableGroups', 'assignableMembers', 'forwardTargets'
+            'assignableGroups', 'assignableMembers', 'forwardTargets', 'leadtimePreview'
         ));
     }
 

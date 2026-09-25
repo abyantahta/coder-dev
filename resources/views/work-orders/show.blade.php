@@ -504,20 +504,47 @@
             {{-- ASSIGN ke MEMBER / STAFF (tanpa penjadwalan) --}}
             @elseif ($stepType === 'assign')
             <h3 class="font-semibold text-slate-800 mb-1">{{ $currentStep->name }}</h3>
-            @if ($workOrder->leadtime_days)
-            <p class="text-xs text-slate-500 mb-4">Leadtime pengerjaan <strong>{{ $workOrder->leadtime_days }} hari kerja</strong> dimulai dari saat assign.</p>
-            @endif
-            <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="flex gap-3">
+            <form method="POST" action="{{ route('approval.advance', $workOrder) }}" class="space-y-4">
                 @csrf
-                <select name="member_id" required class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">— Pilih {{ ucfirst(str_replace('_', ' ', $currentStep->assigns_to_role_key)) }} —</option>
-                    @foreach ($assignableMembers as $m)
-                    <option value="{{ $m->id }}">{{ $m->name }}</option>
-                    @endforeach
-                </select>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
-                    {{ $currentStep->action_label }}
-                </button>
+                @if ($leadtimePreview)
+                @php $ltMode = old('leadtime_mode', 'working'); @endphp
+                <div>
+                    <p class="text-xs text-slate-500 mb-2">
+                        Leadtime kategori <strong>{{ $workOrder->woCategory?->name ?? '' }}</strong>:
+                        <strong>{{ $workOrder->leadtime_days }} hari</strong>, dihitung mulai saat assign. Pilih cara menghitungnya:
+                    </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        @foreach ([
+                            'working'  => ['Hari Kerja', 'Sabtu & Minggu tidak dihitung'],
+                            'calendar' => ['Hari Kalender', 'Semua hari dihitung'],
+                        ] as $mode => [$modeLabel, $modeHint])
+                        <label class="flex items-start gap-3 border rounded-lg px-3 py-2.5 cursor-pointer transition has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 border-slate-200 hover:border-slate-300">
+                            <input type="radio" name="leadtime_mode" value="{{ $mode }}" class="mt-0.5" {{ $ltMode === $mode ? 'checked' : '' }}>
+                            <span>
+                                <span class="block text-sm font-medium text-slate-800">{{ $modeLabel }}</span>
+                                <span class="block text-xs text-slate-500">{{ $modeHint }}</span>
+                                <span class="block text-xs text-slate-700 mt-1">Deadline: <strong>{{ $leadtimePreview[$mode]->copy()->locale('id')->translatedFormat('l, d M Y · H:i') }}</strong></span>
+                            </span>
+                        </label>
+                        @endforeach
+                    </div>
+                    @error('leadtime_mode') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+                @elseif ($workOrder->leadtime_days)
+                <p class="text-xs text-slate-500">Leadtime <strong>{{ $workOrder->leadtime_days }} hari</strong> mulai berjalan setelah pengecekan material.</p>
+                @endif
+                <div class="flex gap-3">
+                    <select name="member_id" required class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">— Pilih {{ ucfirst(str_replace('_', ' ', $currentStep->assigns_to_role_key)) }} —</option>
+                        @foreach ($assignableMembers as $m)
+                        <option value="{{ $m->id }}" {{ (int) old('member_id') === $m->id ? 'selected' : '' }}>{{ $m->name }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+                        {{ $currentStep->action_label }}
+                    </button>
+                </div>
+                @error('member_id') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
             </form>
 
             {{-- MATERIAL CHECK --}}
@@ -616,6 +643,9 @@
                         ↺ Minta Rework
                     </button>
                 </div>
+                @if ($errors->has('action') || $errors->has('review_note'))
+                <p class="text-xs text-red-500">{{ $errors->first('action') ?: $errors->first('review_note') }}</p>
+                @endif
             </form>
             @endif
 
