@@ -75,10 +75,6 @@ class GaPerformanceController extends Controller
             ->map(function (User $member) use ($gaWo) {
                 $finished = $gaWo()->where('assigned_member_id', $member->id)->where('status', 'finished')->get(['score', 'deadline', 'completed_at']);
                 $timed = $finished->filter(fn ($wo) => $wo->deadline && $wo->completed_at);
-                $current = $gaWo()->where('assigned_member_id', $member->id)
-                    ->whereIn('status', ['assigned_member', 'rework', 'pending_parts', 'parts_ordered', 'parts_received'])
-                    ->orderBy('deadline')
-                    ->first();
 
                 return (object) [
                     'user' => $member,
@@ -89,7 +85,6 @@ class GaPerformanceController extends Controller
                     'on_time' => $timed->isNotEmpty()
                         ? round($timed->filter(fn ($wo) => $wo->completed_at->lte($wo->deadline))->count() / $timed->count() * 100, 1)
                         : null,
-                    'current' => $current,
                 ];
             });
 

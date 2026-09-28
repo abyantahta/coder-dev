@@ -77,7 +77,6 @@
                     <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Total Rework</th>
                     <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Tepat Waktu</th>
                     <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">SR (%)</th>
-                    <th class="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -108,20 +107,10 @@
                         <span class="text-slate-300 text-xs">Belum ada data</span>
                         @endif
                     </td>
-                    <td class="px-4 py-3 text-center">
-                        @if ($row->current)
-                        <a href="{{ route('work-orders.show', $row->current) }}"
-                            class="text-xs px-2 py-0.5 rounded-full {{ \App\Models\WorkOrder::statusColor($row->current->status) }}">
-                            {{ \App\Models\WorkOrder::statusLabel($row->current->status) }}
-                        </a>
-                        @else
-                        <span class="text-xs text-slate-400">Idle</span>
-                        @endif
-                    </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center text-slate-400 py-8">Belum ada staff GA terdaftar.</td>
+                    <td colspan="6" class="text-center text-slate-400 py-8">Belum ada staff GA terdaftar.</td>
                 </tr>
                 @endforelse
             </tbody>

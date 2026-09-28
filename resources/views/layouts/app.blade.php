@@ -302,11 +302,10 @@
                 {{-- Only shown while the sidebar is hidden (see app.css). --}}
                 <button id="sidebar-open" type="button" title="Tampilkan menu samping"
                     aria-label="Tampilkan menu samping" aria-controls="sidebar"
-                    class="js-sidebar-toggle items-center gap-2 -ml-2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 shrink-0">
+                    class="js-sidebar-toggle items-center justify-center -ml-2 p-2 rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
                         <path d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
-                    Menu
                 </button>
                 <h1 class="text-[17px] font-semibold tracking-tight text-slate-900 truncate">@yield('page-title', 'Dashboard')</h1>
             </div>
