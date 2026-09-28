@@ -128,7 +128,6 @@
 <script src="{{ asset('js/chart.umd.min.js') }}"></script>
 <script>
 const trendData = @json($monthlyTrend);
-const statusData = @json($woByStatus);
 
 // SR Trend Chart
 new Chart(document.getElementById('srTrendChart'), {
@@ -168,34 +167,22 @@ new Chart(document.getElementById('srTrendChart'), {
     }
 });
 
-// WO Status Donut Chart
-const statusLabels = {
-    pending: 'Pending', accepted: 'Diterima', assigned_member: 'Dalam Pengerjaan',
-    completed: 'Menunggu Review', rework: 'Rework', finished: 'Selesai',
-    rejected: 'Ditolak', cancelled: 'Dibatalkan',
-    forwarded_maintenance: 'Diteruskan ke MTC', forwarded_ga: 'Diteruskan ke GA',
-};
-const statusColors = {
-    pending: '#EAD49B', accepted: '#C3CED8', assigned_member: '#B9BEC7',
-    completed: '#F9CFA4', rework: '#EDC0B5', finished: '#B6D4C1',
-    rejected: '#F0BCB6', cancelled: '#E0DACB',
-    forwarded_maintenance: '#F6B172', forwarded_ga: '#CDD1D8',
-};
-const entries = Object.entries(statusData).filter(([, v]) => v > 0);
-new Chart(document.getElementById('woStatusChart'), {
-    type: 'doughnut',
-    data: {
-        labels: entries.map(([k]) => statusLabels[k] || k),
-        datasets: [{
-            data: entries.map(([, v]) => v),
-            backgroundColor: entries.map(([k]) => statusColors[k] || '#E0DACB'),
-            borderWidth: 1,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { position: 'right' } }
-    }
-});
+const statusGroups = @json(\App\Models\WorkOrder::statusChartGroups($woByStatus));
+if (document.getElementById('woStatusChart') && statusGroups.length) {
+    new Chart(document.getElementById('woStatusChart'), {
+        type: 'doughnut',
+        data: {
+            // Count in the legend label too, so identity never rests on color alone.
+            labels: statusGroups.map(g => g.label + ' (' + g.count + ')'),
+            datasets: [{
+                data: statusGroups.map(g => g.count),
+                backgroundColor: statusGroups.map(g => g.color),
+                borderColor: '#ffffff',
+                borderWidth: 2,
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'right' } } }
+    });
+}
 </script>
 @endpush

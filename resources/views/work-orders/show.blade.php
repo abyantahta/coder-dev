@@ -144,12 +144,20 @@
             </div>
             @endif
             @if ($workOrder->completion_image_path)
+            @php $proofUrl = \Illuminate\Support\Facades\Storage::url($workOrder->completion_image_path); @endphp
             <div class="mt-4">
-                <div class="text-xs text-slate-500 font-semibold mb-2">Foto Penyelesaian</div>
-                <a href="{{ \Illuminate\Support\Facades\Storage::url($workOrder->completion_image_path) }}" target="_blank">
-                    <img src="{{ \Illuminate\Support\Facades\Storage::url($workOrder->completion_image_path) }}"
+                <div class="text-xs text-slate-500 font-semibold mb-2">Foto / Dokumen Penyelesaian</div>
+                @if (\Illuminate\Support\Str::endsWith(strtolower($workOrder->completion_image_path), '.pdf'))
+                <a href="{{ $proofUrl }}" target="_blank"
+                    class="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 border border-slate-200 rounded-lg px-3 py-2">
+                    Lihat dokumen penyelesaian (PDF)
+                </a>
+                @else
+                <a href="{{ $proofUrl }}" target="_blank">
+                    <img src="{{ $proofUrl }}"
                          alt="Foto penyelesaian" class="max-h-64 rounded-lg border border-slate-200 hover:opacity-90 transition">
                 </a>
+                @endif
             </div>
             @endif
         </div>
@@ -239,9 +247,13 @@
             @if ($po->lines->isNotEmpty())
             <div class="mt-3">
                 <div class="text-xs font-semibold text-slate-500 mb-1">Item yang dipesan:</div>
-                <ul class="text-xs text-slate-600 list-disc list-inside">
+                <ul class="text-xs text-slate-600 space-y-0.5">
                     @foreach ($po->lines as $line)
-                    <li>{{ $line->description }} — {{ $line->quantity }} {{ $line->uom }}</li>
+                    <li>
+                        <span class="font-semibold text-slate-500">Line {{ $loop->iteration }}</span> ·
+                        {{ $line->description }} — {{ $line->quantity }} {{ $line->uom }}
+                        @if ($line->qad_po_no) <span class="text-slate-400">· PO {{ $line->qad_po_no }}@if ($line->qad_po_line) line {{ $line->qad_po_line }}@endif</span> @endif
+                    </li>
                     @endforeach
                 </ul>
             </div>
@@ -603,13 +615,21 @@
                         placeholder="Tuliskan detail pekerjaan yang telah selesai…"
                         class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"></textarea>
                 </div>
+                @php $proofRequired = (bool) $workOrder->targetDepartment?->completion_attachment_required; @endphp
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">
-                        Foto Penyelesaian <span class="text-slate-400">(opsional)</span>
+                        Foto / Dokumen Penyelesaian
+                        @if ($proofRequired)
+                        <span class="text-red-500 font-semibold">(wajib)</span>
+                        @else
+                        <span class="text-slate-400">(opsional)</span>
+                        @endif
                     </label>
-                    <input type="file" name="completion_image" accept="image/*"
+                    <input type="file" name="completion_image" accept="image/*,.pdf" {{ $proofRequired ? 'required' : '' }}
                         class="text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0
                                file:text-xs file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200">
+                    <p class="mt-1 text-xs text-slate-400">Foto (JPG/PNG/WEBP) atau PDF, maks. 5 MB.</p>
+                    @error('completion_image') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                 </div>
                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition">
                     {{ $workOrder->status === 'rework' ? '✓ Rework Selesai' : '✓ ' . $currentStep->action_label }}

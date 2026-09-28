@@ -326,6 +326,49 @@ class QadRequisitionService
     }
 
     /**
+     * Capture QAD's own PO line number for each PR line that doesn't have
+     * one yet. SDI_getPRtoPO_ doesn't return it and SDI_getActivePO2 only
+     * lists still-open lines, so this runs whenever PO lines are fetched
+     * and stores the number permanently once seen. Lines are matched on the
+     * part QAD received for them (the same 18-char key buildRequisitionXml
+     * sends); duplicate parts on one PO are paired in order. Pass
+     * $poLinesByPo when the caller already fetched them (avoids refetching).
+     *
+     * @param  array<string, array<int, array>>  $poLinesByPo
+     * @return int number of lines that got a PO line number
+     */
+    public function assignPoLineNumbers(WoPartOrder $order, array $poLinesByPo = []): int
+    {
+        $order->loadMissing('lines');
+        $assigned = 0;
+
+        foreach ($order->lines->whereNotNull('qad_po_no')->groupBy('qad_po_no') as $poNo => $lines) {
+            $missing = $lines->whereNull('qad_po_line');
+            if ($missing->isEmpty()) {
+                continue;
+            }
+
+            $rows = $poLinesByPo[$poNo] ?? $this->findPurchaseOrderLines($poNo, $order->pr_date);
+            $claimed = $lines->pluck('qad_po_line')->filter()->all();
+
+            foreach ($missing as $line) {
+                $key = mb_strtolower(mb_substr(trim((string) ($line->part_code ?: $line->description ?: '')), 0, 18));
+                foreach ($rows as $row) {
+                    if (in_array($row['line'], $claimed, true) || mb_strtolower(trim($row['part'])) !== $key) {
+                        continue;
+                    }
+                    $line->update(['qad_po_line' => $row['line']]);
+                    $claimed[] = $row['line'];
+                    $assigned++;
+                    break;
+                }
+            }
+        }
+
+        return $assigned;
+    }
+
+    /**
      * Every active PO line QAD knows about for a given month (SDI_getActivePO2,
      * WSA broker), unfiltered — every site/vendor, not just our own PRs'.
      * findPurchaseOrderLines() filters this down to one PO. Returns [] on
@@ -612,7 +655,7 @@ XML;
             <wsa:ipDayTo>{$to->day}</wsa:ipDayTo>
             <wsa:ipYearTo>{$to->year}</wsa:ipYearTo>
             <wsa:ipPOStatus>ALL</wsa:ipPOStatus>
-            <wsa:ipMaxRows>10</wsa:ipMaxRows>
+            <wsa:ipMaxRows>500</wsa:ipMaxRows>
         </wsa:SDI_getPRtoPO_>
     </soapenv:Body>
 </soapenv:Envelope>

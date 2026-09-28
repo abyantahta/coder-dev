@@ -429,12 +429,14 @@ html.sb-hidden #sidebar {
     pointer-events: none;
 }
 
-#sidebar-toggle svg {
-    transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+/* "☰ Menu" in the top bar only exists while the sidebar is hidden; the
+   collapse control itself lives inside the sidebar. */
+#sidebar-open {
+    display: none;
 }
 
-html.sb-hidden #sidebar-toggle svg {
-    transform: rotate(180deg);
+html.sb-hidden #sidebar-open {
+    display: inline-flex;
 }
 
 /* Create-WO modal: overlay fade + panel rise */

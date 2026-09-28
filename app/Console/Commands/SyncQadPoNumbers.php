@@ -50,6 +50,9 @@ class SyncQadPoNumbers extends Command
                     $line->update(['qad_po_no' => $lineResult['po_no'], 'qad_po_status' => $lineResult['po_status']]);
                 }
             }
+            // A fresh PO's lines are all still open — best moment to
+            // capture QAD's own PO line numbers.
+            $qad->assignPoLineNumbers($order);
             $updated++;
 
             $this->info(match (true) {

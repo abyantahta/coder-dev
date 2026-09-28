@@ -46,6 +46,17 @@
                 <div class="font-bold text-[15px] leading-none tracking-tight text-slate-900">CODER</div>
                 <div class="text-[11px] leading-none mt-1.5 text-slate-400">Control Work Order</div>
             </div>
+            {{-- Collapse lives inside the sidebar (panel icon, not an arrow) so it
+                 isn't mistaken for a "back" button next to the page title. --}}
+            <button id="sidebar-collapse" type="button" title="Sembunyikan menu samping"
+                aria-label="Sembunyikan menu samping" aria-controls="sidebar"
+                class="js-sidebar-toggle ml-auto p-1.5 -mr-1.5 rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M9 3v18" />
+                    <path d="M16 15l-3-3 3-3" />
+                </svg>
+            </button>
         </div>
 
         {{-- Navigation --}}
@@ -94,14 +105,14 @@
                 <div class="mt-1 ml-8 space-y-0.5">
                     <a href="{{ route('work-orders.index', ($woInboxCount ?? 0) > 0 ? ['tab' => 'inbox'] : []) }}"
                         class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('work-orders.index') || request()->routeIs('work-orders.show') ? $subOn : $subOff }}">
-                        Daftar WO
+                        WO Masuk
                         @if (($woInboxCount ?? 0) > 0)
                         <span class="{{ $subBadge }}" title="Perlu tindakan kamu">{{ $woInboxCount > 99 ? '99+' : $woInboxCount }}</span>
                         @endif
                     </a>
                     <a href="{{ route('work-orders.requested') }}"
                         class="flex items-center justify-between px-3 py-1.5 rounded-lg text-sm {{ request()->routeIs('work-orders.requested') ? $subOn : $subOff }}">
-                        WO Saya Kirim
+                        WO Keluar
                         @if (($woRequestedReviewCount ?? 0) > 0)
                         <span class="{{ $subBadge }}" title="Menunggu review kamu">{{ $woRequestedReviewCount }}</span>
                         @endif
@@ -288,11 +299,14 @@
         {{-- Top bar --}}
         <header class="bg-white border-b border-slate-200 px-6 h-16 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-3 min-w-0">
-                <button id="sidebar-toggle" type="button" title="Tampilkan/Sembunyikan Sidebar"
-                    class="p-2 -ml-2 rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 shrink-0">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                {{-- Only shown while the sidebar is hidden (see app.css). --}}
+                <button id="sidebar-open" type="button" title="Tampilkan menu samping"
+                    aria-label="Tampilkan menu samping" aria-controls="sidebar"
+                    class="js-sidebar-toggle items-center gap-2 -ml-2 px-2.5 py-1.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round">
+                        <path d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
+                    Menu
                 </button>
                 <h1 class="text-[17px] font-semibold tracking-tight text-slate-900 truncate">@yield('page-title', 'Dashboard')</h1>
             </div>
@@ -348,12 +362,24 @@
 
 <script>
     (function () {
-        var toggleBtn = document.getElementById('sidebar-toggle');
-        if (!toggleBtn) return;
-        toggleBtn.addEventListener('click', function () {
-            var hidden = document.documentElement.classList.toggle('sb-hidden');
-            try { localStorage.setItem('sidebar-hidden', hidden ? '1' : '0'); } catch (e) {}
+        var root = document.documentElement;
+        function sync() {
+            var hidden = root.classList.contains('sb-hidden');
+            document.querySelectorAll('.js-sidebar-toggle').forEach(function (btn) {
+                btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+            });
+        }
+        document.querySelectorAll('.js-sidebar-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var hidden = root.classList.toggle('sb-hidden');
+                try { localStorage.setItem('sidebar-hidden', hidden ? '1' : '0'); } catch (e) {}
+                sync();
+                // keep keyboard focus on whichever control is now visible
+                var next = document.getElementById(hidden ? 'sidebar-open' : 'sidebar-collapse');
+                if (next) next.focus();
+            });
         });
+        sync();
     })();
 </script>
 

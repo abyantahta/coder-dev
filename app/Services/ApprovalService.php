@@ -376,6 +376,18 @@ class ApprovalService
 
     private function handleCompletion(WorkOrder $wo, User $actor, Request $request): void
     {
+        // Photo/document proof: always type- and size-checked; mandatory
+        // when the target department requires it (Super Admin → Departments).
+        $required = (bool) $wo->targetDepartment?->completion_attachment_required;
+        $request->validate([
+            'completion_note'  => 'nullable|string|max:2000',
+            'completion_image' => [$required ? 'required' : 'nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+        ], [
+            'completion_image.required' => 'Foto/dokumen penyelesaian wajib dilampirkan untuk departemen ini.',
+            'completion_image.mimes'    => 'Lampiran harus berupa foto (JPG/PNG/WEBP) atau dokumen PDF.',
+            'completion_image.max'      => 'Ukuran lampiran maksimal 5 MB.',
+        ]);
+
         $next = $this->nextStep($wo);
         $data = [
             'status'             => 'completed',
@@ -386,7 +398,7 @@ class ApprovalService
 
         if ($request->hasFile('completion_image')) {
             $file = $request->file('completion_image');
-            $path = 'completion-images/' . Str::uuid() . '.' . $file->getClientOriginalExtension();
+            $path = 'completion-images/' . Str::uuid() . '.' . $file->extension();
             Storage::disk('public')->put($path, file_get_contents($file->getRealPath()));
             $data['completion_image_path'] = $path;
         }

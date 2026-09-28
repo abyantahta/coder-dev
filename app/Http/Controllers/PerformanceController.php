@@ -18,7 +18,11 @@ class PerformanceController extends Controller
 
         if ($user->isSectionHead()) {
             $units   = MaintenanceUnit::with(['groups.members'])->get();
-            $members = User::where('role', 'member')->with(['group', 'unit'])->get();
+            // role 'member' is shared with other departments' staff (e.g. GA),
+            // whose service rate isn't Maintenance's — keep them out.
+            $members = User::where('role', 'member')
+                ->whereHas('dept', fn ($q) => $q->where('slug', 'maintenance'))
+                ->with(['group', 'unit'])->get();
         } elseif ($user->isUnitHead()) {
             $units   = MaintenanceUnit::where('id', $user->unit_id)->with(['groups.members'])->get();
             $members = User::where('unit_id', $user->unit_id)->where('role', 'member')->with('group')->get();

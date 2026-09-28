@@ -409,6 +409,44 @@ class WorkOrder extends Model
     }
 
     /**
+     * Status groups for the "WO per status" donut charts (MTC/QA/GA
+     * performance). A dozen raw statuses in one donut can't all get
+     * distinguishable colors, so they fold into seven groups, each with a
+     * fixed, contrasting hue (validated colorblind-safe as adjacent pairs).
+     * The color follows the group on every page, whichever groups are
+     * present.
+     */
+    public const CHART_STATUS_GROUPS = [
+        ['label' => 'Pending',            'color' => '#2a78d6', 'statuses' => ['pending', 'forwarded_ga', 'forwarded_qa', 'forwarded_maintenance']],
+        ['label' => 'Diproses',           'color' => '#eb6834', 'statuses' => ['accepted', 'assigned_group', 'assigned_member']],
+        ['label' => 'Menunggu Material',  'color' => '#4a3aa7', 'statuses' => ['pending_parts', 'parts_ordered', 'parts_received']],
+        ['label' => 'Menunggu Review',    'color' => '#eda100', 'statuses' => ['completed']],
+        ['label' => 'Rework',             'color' => '#e87ba4', 'statuses' => ['rework']],
+        ['label' => 'Selesai',            'color' => '#008300', 'statuses' => ['finished']],
+        ['label' => 'Ditolak/Dibatalkan', 'color' => '#1baf7a', 'statuses' => ['rejected', 'cancelled']],
+    ];
+
+    /**
+     * Fold per-status counts into the chart groups above (empty groups
+     * dropped). @param iterable<string,int> $countsByStatus
+     *
+     * @return array<int, array{label: string, color: string, count: int}>
+     */
+    public static function statusChartGroups(iterable $countsByStatus): array
+    {
+        $counts = collect($countsByStatus);
+        $groups = [];
+        foreach (self::CHART_STATUS_GROUPS as $group) {
+            $count = (int) $counts->only($group['statuses'])->sum();
+            if ($count > 0) {
+                $groups[] = ['label' => $group['label'], 'color' => $group['color'], 'count' => $count];
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
      * Status tone. One small vocabulary instead of a per-status rainbow:
      * gold = menunggu · steel/ink = sedang berjalan · flame = butuh aksi kamu
      * forest = beres · brick = bermasalah · neutral = ditutup

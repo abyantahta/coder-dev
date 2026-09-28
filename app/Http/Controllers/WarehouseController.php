@@ -416,10 +416,12 @@ class WarehouseController extends Controller
         // for that PO fails with "Line item does not exist". So the number
         // actually sent to receivePurchaseOrder() must be the line's
         // position among only the lines sharing its own PO number.
+        // QAD's real PO line number wins when we've captured it
+        // (assignPoLineNumbers); otherwise fall back to the position.
         $poLineNoByLineId = [];
         foreach ($order->lines->groupBy('qad_po_no') as $linesForPo) {
             foreach ($linesForPo->values() as $i => $line) {
-                $poLineNoByLineId[$line->id] = $i + 1;
+                $poLineNoByLineId[$line->id] = $line->qad_po_line ?: $i + 1;
             }
         }
 
@@ -610,6 +612,8 @@ class WarehouseController extends Controller
         foreach ($poNumbers as $poNo) {
             $poLinesByPo[$poNo] = $qad->findPurchaseOrderLines($poNo, $partOrder->pr_date);
         }
+        // Remember QAD's own PO line numbers while they're still visible.
+        $qad->assignPoLineNumbers($partOrder, $poLinesByPo);
 
         return view('warehouse.order', compact('partOrder', 'results', 'itemMasterCount', 'receivedByLineId', 'canReceive', 'poLinesByPo', 'allAlreadyReceived'));
     }
@@ -651,6 +655,7 @@ class WarehouseController extends Controller
         }
 
         $partOrder->refresh()->load('lines');
+        $qad->assignPoLineNumbers($partOrder);
         $poNumbers = $partOrder->poNumbers();
 
         if (empty($poNumbers)) {

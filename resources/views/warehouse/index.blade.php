@@ -163,15 +163,12 @@
                 </div>
                 @endif
 
-                <form method="POST" action="{{ route('warehouse.receive', $order) }}" class="flex gap-2">
-                    @csrf
-                    <input type="text" name="note" placeholder="Catatan receiving (opsional)"
-                        class="flex-1 border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                    <button type="submit"
-                        class="bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition whitespace-nowrap">
-                        ✓ Terima Barang
-                    </button>
-                </form>
+                {{-- Receiving happens per line (qty per item) on the order page or
+                     the PR / PO tab — no one-click "receive everything" here. --}}
+                <a href="{{ route('warehouse.orders.show', $order) }}"
+                    class="inline-block text-xs font-semibold text-blue-600 hover:text-blue-800">
+                    Lihat detail PR →
+                </a>
             </div>
             @empty
             <div class="p-6 text-center text-slate-400 text-sm">Tidak ada PR aktif.</div>
@@ -294,6 +291,7 @@
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr class="bg-slate-50 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                                        <th class="px-3 py-2">Line</th>
                                         <th class="px-3 py-2">Kode Item</th>
                                         <th class="px-3 py-2">Nama Barang</th>
                                         <th class="px-3 py-2">Qty</th>
@@ -303,6 +301,7 @@
                                 <tbody class="divide-y divide-slate-100">
                                     @forelse ($order->lines as $line)
                                     <tr>
+                                        <td class="px-3 py-2 text-xs font-semibold text-slate-600">{{ $loop->iteration }}</td>
                                         <td class="px-3 py-2 font-mono text-xs text-slate-600">{{ $line->part_code ?: '—' }}</td>
                                         <td class="px-3 py-2 text-slate-800">
                                             {{ $line->description }}
@@ -315,7 +314,7 @@
                                     </tr>
                                     @empty
                                     <tr>
-                                        <td colspan="4" class="px-3 py-4 text-center text-slate-400 text-xs">
+                                        <td colspan="5" class="px-3 py-4 text-center text-slate-400 text-xs">
                                             Belum ada barang dipilih untuk WO ini.
                                             @if ($order->status === 'pending_warehouse')
                                             <a href="{{ route('warehouse.orders.show', $order) }}"

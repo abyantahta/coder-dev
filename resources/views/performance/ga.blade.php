@@ -215,7 +215,6 @@
 <script src="{{ asset('js/chart.umd.min.js') }}"></script>
 <script>
 const trendData = @json($monthlyTrend);
-const statusData = @json($woByStatus);
 
 if (document.getElementById('srTrendChart')) {
     new Chart(document.getElementById('srTrendChart'), {
@@ -256,28 +255,18 @@ if (document.getElementById('srTrendChart')) {
     });
 }
 
-const statusLabels = {
-    pending: 'Pending', accepted: 'Diterima', assigned_member: 'Dalam Pengerjaan',
-    pending_parts: 'Menunggu Material', parts_ordered: 'Material Dipesan', parts_received: 'Material Diterima',
-    completed: 'Menunggu Review', rework: 'Rework', finished: 'Selesai',
-    rejected: 'Ditolak', cancelled: 'Dibatalkan',
-};
-const statusColors = {
-    pending: '#EAD49B', accepted: '#C3CED8', assigned_member: '#B9BEC7',
-    pending_parts: '#F6D38B', parts_ordered: '#F6B172', parts_received: '#C9DDB0',
-    completed: '#F9CFA4', rework: '#EDC0B5', finished: '#B6D4C1',
-    rejected: '#F0BCB6', cancelled: '#E0DACB',
-};
-if (document.getElementById('woStatusChart')) {
-    const entries = Object.entries(statusData).filter(([, v]) => v > 0);
+const statusGroups = @json(\App\Models\WorkOrder::statusChartGroups($woByStatus));
+if (document.getElementById('woStatusChart') && statusGroups.length) {
     new Chart(document.getElementById('woStatusChart'), {
         type: 'doughnut',
         data: {
-            labels: entries.map(([k]) => statusLabels[k] || k),
+            // Count in the legend label too, so identity never rests on color alone.
+            labels: statusGroups.map(g => g.label + ' (' + g.count + ')'),
             datasets: [{
-                data: entries.map(([, v]) => v),
-                backgroundColor: entries.map(([k]) => statusColors[k] || '#E0DACB'),
-                borderWidth: 1,
+                data: statusGroups.map(g => g.count),
+                backgroundColor: statusGroups.map(g => g.color),
+                borderColor: '#ffffff',
+                borderWidth: 2,
             }]
         },
         options: { responsive: true, plugins: { legend: { position: 'right' } } }

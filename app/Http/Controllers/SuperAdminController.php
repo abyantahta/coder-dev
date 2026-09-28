@@ -42,11 +42,13 @@ class SuperAdminController extends Controller
             'color'               => 'required|in:blue,green,purple,red,orange,teal,slate',
             'has_warehouse'       => 'boolean',
             'has_unit_structure'  => 'boolean',
+            'completion_attachment_required' => 'boolean',
         ]);
 
         $data['is_active']          = true;
         $data['has_warehouse']      = $request->boolean('has_warehouse');
         $data['has_unit_structure'] = $request->boolean('has_unit_structure');
+        $data['completion_attachment_required'] = $request->boolean('completion_attachment_required');
 
         Department::create($data);
 
@@ -64,11 +66,13 @@ class SuperAdminController extends Controller
             'is_active'           => 'boolean',
             'has_warehouse'       => 'boolean',
             'has_unit_structure'  => 'boolean',
+            'completion_attachment_required' => 'boolean',
         ]);
 
         $data['is_active']          = $request->boolean('is_active');
         $data['has_warehouse']      = $request->boolean('has_warehouse');
         $data['has_unit_structure'] = $request->boolean('has_unit_structure');
+        $data['completion_attachment_required'] = $request->boolean('completion_attachment_required');
 
         $department->update($data);
 

@@ -95,6 +95,11 @@
                         class="rounded border-slate-300 text-violet-600">
                     Struktur Unit/Group
                 </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="checkbox" name="completion_attachment_required" value="1" {{ old('completion_attachment_required') ? 'checked' : '' }}
+                        class="rounded border-slate-300 text-violet-600">
+                    Wajib foto/dokumen saat WO selesai
+                </label>
             </div>
         </div>
         <div class="flex gap-3 mt-5">
@@ -187,6 +192,9 @@ $dotMap = [
             @if ($dept->has_unit_structure)
             <span class="text-xs text-blue-600 bg-blue-50 px-2.5 py-1.5 rounded-lg font-medium self-center">Unit/Group</span>
             @endif
+            @if ($dept->completion_attachment_required)
+            <span class="text-xs text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg font-medium self-center" title="Foto/dokumen wajib saat menandai WO selesai">Bukti Wajib</span>
+            @endif
         </div>
 
         {{-- Edit form (hidden) --}}
@@ -235,6 +243,10 @@ $dotMap = [
                         <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                             <input type="checkbox" name="has_unit_structure" value="1" {{ $dept->has_unit_structure ? 'checked' : '' }}
                                 class="rounded border-slate-300 text-violet-600"> Unit/Group
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="checkbox" name="completion_attachment_required" value="1" {{ $dept->completion_attachment_required ? 'checked' : '' }}
+                                class="rounded border-slate-300 text-violet-600"> Wajib foto/dokumen saat WO selesai
                         </label>
                     </div>
                 </div>

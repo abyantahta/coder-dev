@@ -87,6 +87,7 @@
                             <table class="w-full text-xs">
                                 <thead class="bg-slate-50">
                                     <tr class="text-left text-slate-500">
+                                        <th class="px-3 py-2">Line</th>
                                         <th class="px-3 py-2">Item</th>
                                         <th class="px-3 py-2">Part Code</th>
                                         <th class="px-3 py-2">Qty</th>
@@ -97,14 +98,18 @@
                                 <tbody class="divide-y divide-slate-100">
                                     @forelse ($order->lines as $line)
                                     <tr>
+                                        <td class="px-3 py-2 font-semibold text-slate-600">{{ $loop->iteration }}</td>
                                         <td class="px-3 py-2 text-slate-800">{{ $line->description }}</td>
                                         <td class="px-3 py-2 font-mono text-slate-500">{{ $line->part_code ?: '—' }}</td>
                                         <td class="px-3 py-2 text-slate-700">{{ $line->quantity }}</td>
                                         <td class="px-3 py-2 text-slate-500">{{ $line->uom }}</td>
-                                        <td class="px-3 py-2 text-slate-500">{{ $line->qad_po_no ?: '—' }}</td>
+                                        <td class="px-3 py-2 text-slate-500">
+                                            {{ $line->qad_po_no ?: '—' }}
+                                            @if ($line->qad_po_line) <span class="text-slate-400">· line {{ $line->qad_po_line }}</span> @endif
+                                        </td>
                                     </tr>
                                     @empty
-                                    <tr><td colspan="5" class="px-3 py-3 text-center text-slate-400">Tidak ada item.</td></tr>
+                                    <tr><td colspan="6" class="px-3 py-3 text-center text-slate-400">Tidak ada item.</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -183,7 +188,9 @@
                             <table class="w-full text-xs">
                                 <thead class="bg-slate-50">
                                     <tr class="text-left text-slate-500">
+                                        <th class="px-3 py-2">Line PO</th>
                                         <th class="px-3 py-2">Item</th>
+                                        <th class="px-3 py-2">PR / Line PR</th>
                                         <th class="px-3 py-2">Qty Dipesan</th>
                                         <th class="px-3 py-2">Qty Diterima</th>
                                         <th class="px-3 py-2">UM</th>
@@ -193,7 +200,9 @@
                                 <tbody class="divide-y divide-slate-100">
                                     @foreach ($row->items as $item)
                                     <tr>
+                                        <td class="px-3 py-2 font-semibold text-slate-600">{{ $item->line->qad_po_line ?: '—' }}</td>
                                         <td class="px-3 py-2 text-slate-800">{{ $item->line->description }}</td>
+                                        <td class="px-3 py-2 text-slate-500 font-mono">{{ $item->order->pr_number }} · {{ $item->order->prLineNumber($item->line) }}</td>
                                         <td class="px-3 py-2 text-slate-700">{{ $item->line->quantity }}</td>
                                         <td class="px-3 py-2 text-slate-700">{{ rtrim(rtrim(number_format($item->qty_received, 2), '0'), '.') }}</td>
                                         <td class="px-3 py-2 text-slate-500">{{ $item->line->uom }}</td>
@@ -248,6 +257,9 @@
                     <div class="flex flex-wrap items-center gap-3 px-4 py-3 {{ $item->is_received ? 'bg-green-50/50' : '' }}">
                         <div class="flex-1 min-w-[160px]">
                             <div class="text-sm font-medium text-slate-800">{{ $item->line->description }}</div>
+                            <div class="text-[11px] text-slate-400 font-mono">
+                                {{ $item->order->pr_number }} line {{ $item->order->prLineNumber($item->line) }}@if ($item->line->qad_po_line) · PO line {{ $item->line->qad_po_line }}@endif
+                            </div>
                             <div class="text-xs text-slate-500">
                                 Dipesan {{ $item->line->quantity }} {{ $item->line->uom }}
                                 @if ($item->qty_received > 0) · sudah diterima {{ rtrim(rtrim(number_format($item->qty_received, 2), '0'), '.') }} {{ $item->line->uom }} @endif

@@ -1,6 +1,6 @@
 @extends('layouts.app')
-@section('title', 'Work Orders')
-@section('page-title', 'Daftar Work Order')
+@section('title', 'WO Masuk')
+@section('page-title', 'WO Masuk')
 
 @section('content')
 @php

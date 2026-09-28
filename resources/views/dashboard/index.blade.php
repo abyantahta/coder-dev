@@ -239,7 +239,10 @@
     @endforeach
 </div>
 
-{{-- My SR --}}
+{{-- My SR — Maintenance technicians only. Service rate is computed from
+     Maintenance WOs, so for other departments' staff (e.g. GA) it would
+     always read N/A. --}}
+@if (($user->dept?->slug ?? 'maintenance') === 'maintenance')
 <div class="bg-white rounded-xl shadow-sm p-5 mb-6 flex items-center gap-6">
     <div class="text-center">
         <div class="text-4xl font-bold {{ $user->service_rate >= 80 ? 'text-green-600' : ($user->service_rate >= 60 ? 'text-yellow-600' : 'text-red-600') }}">
@@ -255,6 +258,7 @@
         </div>
     </div>
 </div>
+@endif
 
 <div class="bg-white rounded-xl shadow-sm p-5">
     <div class="flex items-center justify-between mb-4">

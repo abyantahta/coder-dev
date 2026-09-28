@@ -128,6 +128,7 @@
         <div class="px-5 py-3 flex items-center justify-between gap-3">
             <div class="min-w-0">
                 <div class="text-sm font-medium text-slate-800">
+                    <span class="inline-block text-[11px] font-semibold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 mr-1 align-middle">Line {{ $loop->iteration }}</span>
                     {{ $line->description }}
                     @if ($line->is_custom)
                     <span class="text-xs text-slate-400 font-normal">(manual)</span>
@@ -137,7 +138,7 @@
                     @if ($line->part_code)<span class="font-mono">{{ $line->part_code }}</span> · @endif
                     {{ $line->quantity }} {{ $line->uom }}
                     @if ($line->qad_po_no)
-                    · <span class="text-slate-400">PO {{ $line->qad_po_no }}</span>
+                    · <span class="text-slate-400">PO {{ $line->qad_po_no }}@if ($line->qad_po_line) line {{ $line->qad_po_line }}@endif</span>
                     @endif
                 </div>
             </div>
@@ -448,11 +449,14 @@
             @endphp
             <div class="flex flex-wrap items-center gap-3 px-4 py-3 {{ $remaining <= 0 ? 'bg-green-50/50' : '' }}">
                 <div class="flex-1 min-w-[180px]">
-                    <div class="text-sm font-medium text-slate-800">{{ $line->description }}</div>
+                    <div class="text-sm font-medium text-slate-800">
+                        <span class="inline-block text-[11px] font-semibold text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 mr-1 align-middle">Line {{ $loop->iteration }}</span>
+                        {{ $line->description }}
+                    </div>
                     <div class="text-xs text-slate-500">
                         Dipesan {{ $line->quantity }} {{ $line->uom }}
                         @if ($already > 0) · sudah diterima {{ $already }} {{ $line->uom }} @endif
-                        @if ($linePoNo) · <span class="text-slate-400">PO {{ $linePoNo }}</span> @endif
+                        @if ($linePoNo) · <span class="text-slate-400">PO {{ $linePoNo }}@if ($line->qad_po_line) line {{ $line->qad_po_line }}@endif</span> @endif
                     </div>
                 </div>
                 <input type="hidden" name="items[{{ $loop->index }}][line_id]" value="{{ $line->id }}">

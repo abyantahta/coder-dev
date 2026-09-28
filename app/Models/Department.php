@@ -9,13 +9,14 @@ class Department extends Model
 {
     protected $fillable = [
         'name', 'code', 'slug', 'description', 'color',
-        'is_active', 'has_warehouse', 'has_unit_structure',
+        'is_active', 'has_warehouse', 'has_unit_structure', 'completion_attachment_required',
     ];
 
     protected $casts = [
         'is_active'           => 'boolean',
         'has_warehouse'       => 'boolean',
         'has_unit_structure'  => 'boolean',
+        'completion_attachment_required' => 'boolean',
     ];
 
     public function roles(): HasMany

@@ -49,6 +49,14 @@ class WoPartOrder extends Model
         return $this->hasMany(WoPartOrderLine::class)->orderBy('id');
     }
 
+    /** The requisition line number (1, 2, 3…) this line was sent to QAD as. */
+    public function prLineNumber(WoPartOrderLine $line): ?int
+    {
+        $index = $this->lines->search(fn ($l) => $l->id === $line->id);
+
+        return $index === false ? null : $index + 1;
+    }
+
     public function isOverdue(): bool
     {
         return $this->expected_arrival

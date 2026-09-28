@@ -62,7 +62,7 @@ class WorkOrderController extends Controller
         ));
     }
 
-    /** Status groups on the "WO Saya Kirim" page, from the requester's point of view. */
+    /** Status groups on the "WO Keluar" page, from the requester's point of view. */
     private const REQUESTED_GROUPS = [
         'pending'  => ['pending'],
         'review'   => ['completed'],

@@ -70,27 +70,11 @@
                 <canvas id="woStatusChart"></canvas>
             </div>
             <div class="space-y-2">
-                @foreach ($woByStatus as $status => $count)
+                @foreach (\App\Models\WorkOrder::statusChartGroups($woByStatus) as $g)
                 <div class="flex items-center gap-2 text-sm">
-                    <div class="w-3 h-3 rounded-full" style="background: {{ [
-                        'pending' => '#B08420',
-                        'accepted' => '#5B6472',
-                        'rejected' => '#B3261E',
-                        'assigned_group' => '#7A8494',
-                        'assigned_member' => '#12161C',
-                        'completed' => '#F2790B',
-                        'rework' => '#C0392B',
-                        'finished' => '#2E7350',
-                        'pending_parts' => '#DBBA6A',
-                        'parts_ordered' => '#9AA2AE',
-                        'parts_received' => '#5C9E77',
-                        'forwarded_ga' => '#4A5A6B',
-                        'forwarded_qa' => '#7A8494',
-                        'forwarded_maintenance' => '#F6B172',
-                        'cancelled' => '#C7C1B2',
-                    ][$status] ?? '#9AA2AE' }}"></div>
-                    <span class="text-slate-600">{{ \App\Models\WorkOrder::statusLabel($status) }}</span>
-                    <span class="font-semibold text-slate-800">{{ $count }}</span>
+                    <div class="w-3 h-3 rounded-full shrink-0" style="background: {{ $g['color'] }}"></div>
+                    <span class="text-slate-600">{{ $g['label'] }}</span>
+                    <span class="font-semibold text-slate-800">{{ $g['count'] }}</span>
                 </div>
                 @endforeach
             </div>
@@ -290,26 +274,12 @@ new Chart(document.getElementById('monthlyTrendChart'), {
 new Chart(document.getElementById('woStatusChart'), {
     type: 'doughnut',
     data: {
-        labels: {!! $woByStatus->keys()->map(fn($s) => \App\Models\WorkOrder::statusLabel($s))->toJson() !!},
+        labels: {!! collect(\App\Models\WorkOrder::statusChartGroups($woByStatus))->pluck('label')->toJson() !!},
         datasets: [{
-            data: {!! $woByStatus->values()->toJson() !!},
-            backgroundColor: {!! $woByStatus->keys()->map(fn($s) => match($s) {
-                'pending' => '#B08420',
-                'accepted' => '#5B6472',
-                'rejected' => '#B3261E',
-                'assigned_group' => '#7A8494',
-                'assigned_member' => '#12161C',
-                'completed' => '#F2790B',
-                'rework' => '#C0392B',
-                'finished' => '#2E7350',
-                'pending_parts' => '#DBBA6A',
-                'parts_ordered' => '#9AA2AE',
-                'parts_received' => '#5C9E77',
-                'forwarded_ga' => '#4A5A6B',
-                'forwarded_qa' => '#7A8494',
-                'forwarded_maintenance' => '#F6B172',
-                default => '#9AA2AE',
-            })->toJson() !!},
+            data: {!! collect(\App\Models\WorkOrder::statusChartGroups($woByStatus))->pluck('count')->toJson() !!},
+            backgroundColor: {!! collect(\App\Models\WorkOrder::statusChartGroups($woByStatus))->pluck('color')->toJson() !!},
+            borderColor: '#ffffff',
+            borderWidth: 2,
         }]
     },
     options: {
