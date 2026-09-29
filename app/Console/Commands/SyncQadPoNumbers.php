@@ -39,17 +39,7 @@ class SyncQadPoNumbers extends Command
                 continue;
             }
 
-            $order->update([
-                'qad_approval_status' => $result['approval_status'],
-                'qad_po_no' => $result['po_no'] ?? $order->qad_po_no,
-            ]);
-
-            foreach ($order->lines as $i => $line) {
-                $lineResult = $result['lines'][$i + 1] ?? null;
-                if ($lineResult && $lineResult['po_no']) {
-                    $line->update(['qad_po_no' => $lineResult['po_no'], 'qad_po_status' => $lineResult['po_status']]);
-                }
-            }
+            $order->applyPoLookup($result);
             // A fresh PO's lines are all still open — best moment to
             // capture QAD's own PO line numbers.
             $qad->assignPoLineNumbers($order);

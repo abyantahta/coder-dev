@@ -637,18 +637,7 @@ class WarehouseController extends Controller
             return back()->with('success', 'Belum ada respons dari QAD — PR masih menunggu approval.');
         }
 
-        $partOrder->update([
-            'qad_approval_status' => $result['approval_status'],
-            'qad_po_no' => $result['po_no'] ?? $partOrder->qad_po_no,
-        ]);
-
-        $partOrder->load('lines');
-        foreach ($partOrder->lines as $i => $line) {
-            $lineResult = $result['lines'][$i + 1] ?? null;
-            if ($lineResult && $lineResult['po_no']) {
-                $line->update(['qad_po_no' => $lineResult['po_no'], 'qad_po_status' => $lineResult['po_status']]);
-            }
-        }
+        $partOrder->applyPoLookup($result, Auth::id());
 
         if ($result['approval_status'] !== '2') {
             return back()->with('success', 'Belum disetujui — PR masih menunggu approval di QAD.');

@@ -149,6 +149,46 @@ class WoPartOrder extends Model
         return $this->qad_po_no ? [$this->qad_po_no] : [];
     }
 
+    /**
+     * Store a QadRequisitionService::findPurchaseOrder() result on this
+     * order and its lines — the one place both "Cek PO" and the scheduled
+     * qad:sync-po-numbers write PO numbers — and, when a PO number shows
+     * up for the first time, log it on the WO's history so the requester
+     * and the department can see the PR has become a PO.
+     *
+     * @param  int|null  $actorId  who triggered it (null = scheduled check; logged under the PR's handler)
+     * @return list<string> PO numbers that are new on this order
+     */
+    public function applyPoLookup(array $result, ?int $actorId = null): array
+    {
+        $this->loadMissing('lines');
+        $before = $this->poNumbers();
+
+        $this->update([
+            'qad_approval_status' => $result['approval_status'],
+            'qad_po_no' => $result['po_no'] ?? $this->qad_po_no,
+        ]);
+
+        foreach ($this->lines as $i => $line) {
+            $lineResult = $result['lines'][$i + 1] ?? null;
+            if ($lineResult && $lineResult['po_no']) {
+                $line->update(['qad_po_no' => $lineResult['po_no'], 'qad_po_status' => $lineResult['po_status']]);
+            }
+        }
+
+        $this->load('lines');
+        $new = array_values(array_diff($this->poNumbers(), $before));
+
+        $historyUserId = $actorId ?? $this->handled_by ?? $this->requested_by;
+        if ($new !== [] && $this->workOrder && $historyUserId) {
+            $label = count($new) > 1 ? 'PO diterbitkan QAD (split '.count($new).' PO)' : 'PO diterbitkan QAD';
+            $this->workOrder->addHistory($historyUserId, 'purchase_order_issued',
+                "{$label}: ".implode(', ', $new)." (dari {$this->pr_number})".($actorId ? '.' : ', terdeteksi otomatis.'));
+        }
+
+        return $new;
+    }
+
     public function isSplitAcrossPos(): bool
     {
         return count($this->poNumbers()) > 1;
