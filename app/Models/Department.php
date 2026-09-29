@@ -9,11 +9,12 @@ class Department extends Model
 {
     protected $fillable = [
         'name', 'code', 'slug', 'description', 'color',
-        'is_active', 'has_warehouse', 'has_unit_structure', 'completion_attachment_required',
+        'is_active', 'accepts_work_orders', 'has_warehouse', 'has_unit_structure', 'completion_attachment_required',
     ];
 
     protected $casts = [
         'is_active'           => 'boolean',
+        'accepts_work_orders' => 'boolean',
         'has_warehouse'       => 'boolean',
         'has_unit_structure'  => 'boolean',
         'completion_attachment_required' => 'boolean',
@@ -40,14 +41,16 @@ class Department extends Model
     }
 
     /**
-     * Departments a WO can be sent/forwarded to: active and with an
-     * approval flow configured. A requester-only department (e.g. one that
-     * only exists so its users can send WOs) has no steps and would leave
-     * a WO stuck with nobody to receive it.
+     * Departments a WO can be sent/forwarded to: active, marked by Super
+     * Admin as "bisa menerima WO masuk", and with an approval flow
+     * configured (without one a WO would sit with nobody to receive it).
+     * Departments like Produksi/Engineering are send-only.
      */
     public function scopeReceivesWorkOrders($query)
     {
-        return $query->where('is_active', true)->whereHas('approvalSteps');
+        return $query->where('is_active', true)
+            ->where('accepts_work_orders', true)
+            ->whereHas('approvalSteps');
     }
 
     public function workOrders(): HasMany

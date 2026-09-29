@@ -86,6 +86,11 @@
             </div>
             <div class="flex gap-6">
                 <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <input type="checkbox" name="accepts_work_orders" value="1" {{ old('accepts_work_orders') ? 'checked' : '' }}
+                        class="rounded border-slate-300 text-violet-600">
+                    Bisa menerima WO masuk
+                </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                     <input type="checkbox" name="has_warehouse" value="1" {{ old('has_warehouse') ? 'checked' : '' }}
                         class="rounded border-slate-300 text-violet-600">
                     Punya Warehouse
@@ -186,6 +191,11 @@ $dotMap = [
                 class="flex-1 text-center text-sm font-medium bg-white border border-slate-300 hover:border-violet-400 hover:text-violet-700 text-slate-700 py-1.5 rounded-lg transition">
                 Kelola Konfigurasi
             </a>
+            @if ($dept->accepts_work_orders)
+            <span class="text-xs text-green-700 bg-green-50 px-2.5 py-1.5 rounded-lg font-medium self-center" title="Bisa dipilih sebagai tujuan WO">Terima WO</span>
+            @else
+            <span class="text-xs text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-lg font-medium self-center" title="User departemen ini hanya bisa mengirim WO">Hanya kirim WO</span>
+            @endif
             @if ($dept->has_warehouse)
             <span class="text-xs text-teal-600 bg-teal-50 px-2.5 py-1.5 rounded-lg font-medium self-center">Warehouse</span>
             @endif
@@ -196,6 +206,12 @@ $dotMap = [
             <span class="text-xs text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-lg font-medium self-center" title="Foto/dokumen wajib saat menandai WO selesai">Bukti Wajib</span>
             @endif
         </div>
+
+        @if ($dept->accepts_work_orders && $dept->approval_steps_count === 0)
+        <div class="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            Diset "bisa menerima WO", tapi alur approval belum diatur — departemen ini belum muncul sebagai tujuan WO sampai alurnya dibuat di Kelola Konfigurasi.
+        </div>
+        @endif
 
         {{-- Edit form (hidden) --}}
         <div id="edit-dept-{{ $dept->id }}" class="hidden border-t border-violet-100 bg-violet-50 px-5 py-5">
@@ -239,6 +255,10 @@ $dotMap = [
                         <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                             <input type="checkbox" name="has_warehouse" value="1" {{ $dept->has_warehouse ? 'checked' : '' }}
                                 class="rounded border-slate-300 text-violet-600"> Warehouse
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                            <input type="checkbox" name="accepts_work_orders" value="1" {{ $dept->accepts_work_orders ? 'checked' : '' }}
+                                class="rounded border-slate-300 text-violet-600"> Bisa menerima WO masuk
                         </label>
                         <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
                             <input type="checkbox" name="has_unit_structure" value="1" {{ $dept->has_unit_structure ? 'checked' : '' }}

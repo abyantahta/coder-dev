@@ -1,7 +1,3 @@
-@php
-$isQaScope = auth()->user()->isQaSectionHead();
-$departments = $isQaScope ? ['QA'] : ['IT','GA','Engineering','Maintenance','Admin','HRGA','QC','PPIC','Produksi'];
-@endphp
 
 <div>
     <label class="block text-sm font-medium text-slate-700 mb-1.5">Nama <span class="text-red-500">*</span></label>
@@ -40,13 +36,9 @@ $departments = $isQaScope ? ['QA'] : ['IT','GA','Engineering','Maintenance','Adm
         </select>
     </div>
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1.5">Departemen <span class="text-red-500">*</span></label>
-        <select name="department" required
-            class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            @foreach ($departments as $dept)
-            <option value="{{ $dept }}" {{ old('department', $user?->department) === $dept ? 'selected' : '' }}>{{ $dept }}</option>
-            @endforeach
-        </select>
+        <label class="block text-sm font-medium text-slate-700 mb-1.5">Departemen</label>
+        {{-- Always the Section Head's own department — this page only manages that one. --}}
+        <div class="w-full border border-slate-200 bg-slate-50 rounded-lg px-4 py-2.5 text-sm text-slate-700">{{ $deptName }}</div>
     </div>
 </div>
 

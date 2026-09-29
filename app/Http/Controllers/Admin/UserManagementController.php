@@ -40,9 +40,23 @@ class UserManagementController extends Controller
      * in but never be assigned or act on a step. Derive both from the
      * actor's department and the chosen legacy role.
      */
-    private function engineFields(User $actor, string $role): array
+    /**
+     * This page only ever manages the actor's own department, so a user
+     * created/edited here always belongs to it — there is nothing to pick.
+     *
+     * @return array{slug: string, label: string, name: string}
+     */
+    private function actorDepartment(User $actor): array
     {
         $slug = $actor->isQaSectionHead() ? 'qa' : ($actor->isGaSectionHead() ? 'ga' : 'maintenance');
+        $label = ['qa' => 'QA', 'ga' => 'GA', 'maintenance' => 'Maintenance'][$slug]; // legacy `department` text
+
+        return ['slug' => $slug, 'label' => $label, 'name' => Department::where('slug', $slug)->value('name') ?? $label];
+    }
+
+    private function engineFields(User $actor, string $role): array
+    {
+        $slug = $this->actorDepartment($actor)['slug'];
         $departmentId = Department::where('slug', $slug)->value('id');
 
         $key = match ($role) {
@@ -78,7 +92,8 @@ class UserManagementController extends Controller
         $actor = Auth::user();
         $units = $this->unitsFor($actor);
         $roles = $this->allowedRoles($actor);
-        return view('admin.users.create', compact('units', 'roles'));
+        $deptName = $this->actorDepartment($actor)['name'];
+        return view('admin.users.create', compact('units', 'roles', 'deptName'));
     }
 
     public function store(Request $request)
@@ -91,16 +106,10 @@ class UserManagementController extends Controller
             'email'      => 'required|email|unique:users,email',
             'password'   => ['required', Password::min(6)],
             'role'       => 'required|in:' . implode(',', $roles),
-            'department' => 'required|string|max:50',
             'unit_id'    => 'nullable|exists:maintenance_units,id',
             'group_id'   => 'nullable|exists:maintenance_groups,id',
         ]);
-
-        if ($actor->isQaSectionHead()) {
-            $validated['department'] = 'QA';
-        } elseif ($actor->isGaSectionHead()) {
-            $validated['department'] = 'GA';
-        }
+        $validated['department'] = $this->actorDepartment($actor)['label'];
 
         User::create([
             ...$validated,
@@ -118,7 +127,8 @@ class UserManagementController extends Controller
 
         $units = $this->unitsFor($actor);
         $roles = $this->allowedRoles($actor);
-        return view('admin.users.edit', compact('user', 'units', 'roles'));
+        $deptName = $this->actorDepartment($actor)['name'];
+        return view('admin.users.edit', compact('user', 'units', 'roles', 'deptName'));
     }
 
     public function update(Request $request, User $user)
@@ -132,16 +142,10 @@ class UserManagementController extends Controller
             'name'       => 'required|string|max:100',
             'email'      => 'required|email|unique:users,email,' . $user->id,
             'role'       => 'required|in:' . implode(',', $roles),
-            'department' => 'required|string|max:50',
             'unit_id'    => 'nullable|exists:maintenance_units,id',
             'group_id'   => 'nullable|exists:maintenance_groups,id',
         ]);
-
-        if ($actor->isQaSectionHead()) {
-            $validated['department'] = 'QA';
-        } elseif ($actor->isGaSectionHead()) {
-            $validated['department'] = 'GA';
-        }
+        $validated['department'] = $this->actorDepartment($actor)['label'];
 
         if ($request->filled('password')) {
             $request->validate(['password' => Password::min(6)]);

@@ -43,9 +43,11 @@ class SuperAdminController extends Controller
             'has_warehouse'       => 'boolean',
             'has_unit_structure'  => 'boolean',
             'completion_attachment_required' => 'boolean',
+            'accepts_work_orders' => 'boolean',
         ]);
 
         $data['is_active']          = true;
+        $data['accepts_work_orders'] = $request->boolean('accepts_work_orders');
         $data['has_warehouse']      = $request->boolean('has_warehouse');
         $data['has_unit_structure'] = $request->boolean('has_unit_structure');
         $data['completion_attachment_required'] = $request->boolean('completion_attachment_required');
@@ -67,9 +69,11 @@ class SuperAdminController extends Controller
             'has_warehouse'       => 'boolean',
             'has_unit_structure'  => 'boolean',
             'completion_attachment_required' => 'boolean',
+            'accepts_work_orders' => 'boolean',
         ]);
 
         $data['is_active']          = $request->boolean('is_active');
+        $data['accepts_work_orders'] = $request->boolean('accepts_work_orders');
         $data['has_warehouse']      = $request->boolean('has_warehouse');
         $data['has_unit_structure'] = $request->boolean('has_unit_structure');
         $data['completion_attachment_required'] = $request->boolean('completion_attachment_required');
