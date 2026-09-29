@@ -66,6 +66,35 @@ class User extends Authenticatable
 
     // ── Role helpers ──────────────────────────────────────────────────────────
 
+    /**
+     * The legacy `role` string still drives route gates, menus and WO
+     * visibility (isSectionHead(), `role:` middleware, …). It is no longer
+     * picked by hand: it follows from the user's Department + Role Dept.
+     * No Role Dept (or a role with no legacy equivalent) = 'user', i.e. a
+     * requester who can only send WOs and never receives them.
+     */
+    public static function legacyRoleFor(?Department $department, ?DepartmentRole $deptRole): string
+    {
+        if (! $department || ! $deptRole) {
+            return 'user';
+        }
+
+        return match ($department->slug) {
+            'maintenance' => in_array($deptRole->key, ['section_head', 'unit_head', 'group_head', 'member', 'warehouse_mtc'], true)
+                ? $deptRole->key
+                : 'user',
+            'qa' => ['section_head' => 'qa_section_head', 'group_head' => 'qa_group_head', 'member' => 'qa_member'][$deptRole->key] ?? 'user',
+            'ga' => ['section_head' => 'ga_section_head', 'staff' => 'member'][$deptRole->key] ?? 'user',
+            default => 'user',
+        };
+    }
+
+    /** Requester-only account: can send WOs, has no role in receiving/processing them. */
+    public function isRequesterOnly(): bool
+    {
+        return $this->role === 'user';
+    }
+
     public function isSectionHead(): bool
     {
         return $this->role === 'section_head';
@@ -183,7 +212,7 @@ class User extends Authenticatable
             'qa_member' => 'QA Member',
             'qa_section_head' => 'QA Section Head',
             'ga_section_head' => 'GA Section Head',
-            'user' => 'User',
+            'user' => 'User (hanya kirim WO)',
             default => ucfirst($role),
         };
     }

@@ -15,8 +15,8 @@ use Illuminate\Validation\Rules\Password;
 
 class UserManagementController extends Controller
 {
-    private const QA_ROLES  = ['qa_section_head', 'qa_group_head', 'qa_member'];
-    private const GA_ROLES  = ['ga_section_head', 'member'];
+    private const QA_ROLES  = ['qa_section_head', 'qa_group_head', 'qa_member', 'user'];
+    private const GA_ROLES  = ['ga_section_head', 'member', 'user'];
     private const MTC_ROLES = ['section_head', 'unit_head', 'group_head', 'member', 'warehouse_mtc', 'user'];
 
     private function allowedRoles(User $actor): array

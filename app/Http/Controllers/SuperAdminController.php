@@ -122,14 +122,14 @@ class SuperAdminController extends Controller
             'email'         => 'required|email|unique:users,email',
             'password'      => 'required|string|min:6',
             'department_id' => 'nullable|exists:departments,id',
-            'dept_role_id'  => 'nullable|exists:department_roles,id',
-            'role'          => 'nullable|string|max:50',
+            'dept_role_id'  => $this->deptRoleRule($request),
             'is_superadmin' => 'boolean',
         ]);
 
         $data['password']     = Hash::make($data['password']);
         $data['is_superadmin'] = $request->boolean('is_superadmin');
         $data['department']   = optional(Department::find($data['department_id'] ?? null))->name ?? 'IT';
+        $data['role']         = $this->legacyRole($data, null);
 
         User::create([...$data, ...$this->qadCredentials($request, null)]);
 
@@ -143,8 +143,7 @@ class SuperAdminController extends Controller
             'email'         => ['required','email', Rule::unique('users','email')->ignore($user->id)],
             'password'      => 'nullable|string|min:6',
             'department_id' => 'nullable|exists:departments,id',
-            'dept_role_id'  => 'nullable|exists:department_roles,id',
-            'role'          => 'nullable|string|max:50',
+            'dept_role_id'  => $this->deptRoleRule($request),
             'is_superadmin' => 'boolean',
         ]);
 
@@ -156,10 +155,35 @@ class SuperAdminController extends Controller
 
         $data['is_superadmin'] = $request->boolean('is_superadmin');
         $data['department']    = optional(Department::find($data['department_id'] ?? null))->name ?? ($user->department ?? 'IT');
+        $data['role']          = $this->legacyRole($data, $user);
 
         $user->update([...$data, ...$this->qadCredentials($request, $user)]);
 
         return redirect()->route('superadmin.users.index')->with('success', "User {$user->name} berhasil diupdate.");
+    }
+
+    /** Role Dept is optional (empty = requester-only), but must belong to the chosen department. */
+    private function deptRoleRule(Request $request): array
+    {
+        return ['nullable', Rule::exists('department_roles', 'id')->where('department_id', (int) $request->department_id)];
+    }
+
+    /**
+     * Legacy `role` is derived from Department + Role Dept (see
+     * User::legacyRoleFor) instead of being picked by hand. Exception: an
+     * IT superadmin account with no Role Dept keeps whatever role it has,
+     * so editing it here can't silently strip its menus.
+     */
+    private function legacyRole(array $data, ?User $user): string
+    {
+        $department = Department::find($data['department_id'] ?? null);
+        $deptRole = \App\Models\DepartmentRole::find($data['dept_role_id'] ?? null);
+
+        if (! $deptRole && $user && $user->is_superadmin && ! empty($data['is_superadmin'])) {
+            return $user->role;
+        }
+
+        return User::legacyRoleFor($department, $deptRole);
     }
 
     /**

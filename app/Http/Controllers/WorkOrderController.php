@@ -228,7 +228,12 @@ class WorkOrderController extends Controller
             'title'                => 'required|string|max:200',
             'description'          => 'required|string',
             'category'             => 'nullable|string|max:100',
-            'target_department_id' => 'required|exists:departments,id',
+            'target_department_id' => ['required', Rule::exists('departments', 'id')->where('is_active', true),
+                function ($attr, $value, $fail) {
+                    if (! Department::whereKey($value)->receivesWorkOrders()->exists()) {
+                        $fail('Departemen ini belum bisa menerima WO (alur approval belum diatur).');
+                    }
+                }],
             'wo_category_id'       => ['required', Rule::exists('wo_categories', 'id')
                 ->where('department_id', (int) $request->target_department_id)],
             'attachment'           => 'nullable|file|mimes:pdf,png|max:5120',
@@ -373,7 +378,7 @@ class WorkOrderController extends Controller
         }
 
         if ($canAct && $currentStep?->can_forward) {
-            $forwardTargets = Department::where('is_active', true)
+            $forwardTargets = Department::receivesWorkOrders()
                 ->where('id', '!=', $workOrder->target_department_id)
                 ->get();
         }

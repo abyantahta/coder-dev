@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $view->with('woCreateDepartments', Department::where('is_active', true)->orderBy('name')->get());
+            $view->with('woCreateDepartments', Department::receivesWorkOrders()->orderBy('name')->get());
             $view->with('woCreateCategoriesByDept', WoCategory::where('is_active', true)
                 ->orderBy('sort_order')
                 ->get(['id', 'name', 'department_id'])

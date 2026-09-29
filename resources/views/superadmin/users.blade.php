@@ -81,26 +81,10 @@
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Role Dept</label>
+                <label class="block text-xs font-medium text-slate-600 mb-1">Role Dept <span class="text-slate-400 font-normal">(kosong = User, hanya kirim WO)</span></label>
                 <select name="dept_role_id" id="new-role-select"
                     class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                    <option value="">— Pilih Role —</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">Role (sistem lama)</label>
-                <select name="role"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                    <option value="user" {{ old('role') === 'user' ? 'selected' : '' }}>User (requester)</option>
-                    <option value="member" {{ old('role') === 'member' ? 'selected' : '' }}>Member</option>
-                    <option value="group_head" {{ old('role') === 'group_head' ? 'selected' : '' }}>Group Head</option>
-                    <option value="unit_head" {{ old('role') === 'unit_head' ? 'selected' : '' }}>Unit Head</option>
-                    <option value="section_head" {{ old('role') === 'section_head' ? 'selected' : '' }}>Section Head</option>
-                    <option value="warehouse_mtc" {{ old('role') === 'warehouse_mtc' ? 'selected' : '' }}>Warehouse MTC</option>
-                    <option value="qa_member" {{ old('role') === 'qa_member' ? 'selected' : '' }}>QA Member</option>
-                    <option value="qa_group_head" {{ old('role') === 'qa_group_head' ? 'selected' : '' }}>QA Group Head</option>
-                    <option value="qa_section_head" {{ old('role') === 'qa_section_head' ? 'selected' : '' }}>QA Section Head</option>
-                    <option value="ga_section_head" {{ old('role') === 'ga_section_head' ? 'selected' : '' }}>GA Section Head</option>
+                    <option value="">User — hanya kirim WO</option>
                 </select>
             </div>
             <div class="col-span-2">
@@ -158,7 +142,15 @@
                     </td>
                     <td class="px-4 py-3 text-slate-500 text-xs font-mono">{{ $u->email }}</td>
                     <td class="px-4 py-3 text-slate-600 text-xs">{{ $u->dept?->name ?? ($u->department ?? '—') }}</td>
-                    <td class="px-4 py-3 text-slate-600 text-xs">{{ $u->deptRole?->name ?? '—' }}</td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">
+                        @if ($u->deptRole)
+                        {{ $u->deptRole->name }}
+                        @elseif ($u->is_superadmin)
+                        —
+                        @else
+                        <span class="text-slate-500">User <span class="text-slate-400">(hanya kirim WO)</span></span>
+                        @endif
+                    </td>
                     <td class="px-4 py-3">
                         <div class="flex flex-wrap gap-1">
                             @if ($u->is_superadmin)
@@ -223,24 +215,15 @@
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-slate-600 mb-1">Role Dept</label>
+                                    <label class="block text-xs font-medium text-slate-600 mb-1">Role Dept <span class="text-slate-400 font-normal">(kosong = User, hanya kirim WO)</span></label>
                                     <select name="dept_role_id" id="edit-role-{{ $u->id }}"
                                         class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                                        <option value="">— Pilih Role —</option>
+                                        <option value="">User — hanya kirim WO</option>
                                         @if ($u->department_id && isset($rolesByDept[$u->department_id]))
                                         @foreach ($rolesByDept[$u->department_id] as $r)
                                         <option value="{{ $r->id }}" {{ $u->dept_role_id == $r->id ? 'selected' : '' }}>{{ $r->name }}</option>
                                         @endforeach
                                         @endif
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-600 mb-1">Role (sistem)</label>
-                                    <select name="role"
-                                        class="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500">
-                                        @foreach (['user','member','group_head','unit_head','section_head','warehouse_mtc','qa_member','qa_group_head','qa_section_head','ga_section_head'] as $r)
-                                        <option value="{{ $r }}" {{ $u->role === $r ? 'selected' : '' }}>{{ ucwords(str_replace('_',' ',$r)) }}</option>
-                                        @endforeach
                                     </select>
                                 </div>
                                 <div class="col-span-3">
@@ -320,7 +303,7 @@ function updateRoles(selectId, deptId) {
     const sel = document.getElementById(selectId);
     if (!sel) return;
     const roles = deptId && rolesByDept[deptId] ? rolesByDept[deptId] : [];
-    sel.innerHTML = '<option value="">— Pilih Role —</option>';
+    sel.innerHTML = '<option value="">User — hanya kirim WO</option>';
     roles.forEach(r => {
         const opt = document.createElement('option');
         opt.value = r.id;

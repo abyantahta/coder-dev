@@ -39,6 +39,17 @@ class Department extends Model
         return $this->hasMany(User::class);
     }
 
+    /**
+     * Departments a WO can be sent/forwarded to: active and with an
+     * approval flow configured. A requester-only department (e.g. one that
+     * only exists so its users can send WOs) has no steps and would leave
+     * a WO stuck with nobody to receive it.
+     */
+    public function scopeReceivesWorkOrders($query)
+    {
+        return $query->where('is_active', true)->whereHas('approvalSteps');
+    }
+
     public function workOrders(): HasMany
     {
         return $this->hasMany(WorkOrder::class, 'target_department_id');

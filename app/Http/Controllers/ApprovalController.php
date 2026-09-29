@@ -33,7 +33,11 @@ class ApprovalController extends Controller
         $step = $workOrder->currentStep();
         abort_unless($step && $this->service->canAct(Auth::user(), $workOrder) && $step->can_forward, 403, 'Aksi forward tidak diizinkan.');
         $request->validate([
-            'target_dept_id' => 'required|integer|exists:departments,id',
+            'target_dept_id' => ['required', 'integer', function ($attr, $value, $fail) {
+                if (! \App\Models\Department::whereKey($value)->receivesWorkOrders()->exists()) {
+                    $fail('Departemen tujuan belum bisa menerima WO.');
+                }
+            }],
             'reason'         => 'required|string|max:500',
         ]);
         $this->service->forward($workOrder, Auth::user(), (int) $request->target_dept_id, $request->reason);
